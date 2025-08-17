@@ -49,7 +49,16 @@ cd ~/.devbox && ./build.sh
 
 4. (Optional) Create a symlink for easier access:
 ```bash
-sudo ln -s ~/.devbox/devbox.sh /usr/local/bin/devbox
+ln -s ~/.devbox/devbox.sh ~/.local/bin/devbox
+```
+
+5. Add ~/.local/bin to your PATH if not already present:
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+# Or for zsh users:
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
 ```
 
 ## Usage
@@ -250,12 +259,20 @@ If you need to access additional domains:
 
 ### Can't Find Command
 
-```bash
-# Add to PATH
-echo 'export PATH="$PATH:$HOME/.devbox"' >> ~/.bashrc
-source ~/.bashrc
+If `devbox` command is not found:
 
-# Or create alias
+```bash
+# Check if ~/.local/bin is in your PATH
+echo $PATH | grep -q "$HOME/.local/bin" || echo "Not in PATH"
+
+# Add ~/.local/bin to PATH
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+# Or for zsh:
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+
+# Alternatively, create an alias
 echo 'alias devbox="$HOME/.devbox/devbox.sh"' >> ~/.bashrc
 source ~/.bashrc
 ```

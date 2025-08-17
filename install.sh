@@ -155,24 +155,36 @@ else
     exit 1
 fi
 
-# Create convenience symlinks in /usr/local/bin if user has permissions
+# Create convenience symlink in ~/.local/bin
 print_step "Setting up command-line access..."
-SYMLINK_DIR="/usr/local/bin"
+SYMLINK_DIR="$HOME/.local/bin"
 SYMLINK_CREATED=false
 
-if [ -w "${SYMLINK_DIR}" ] || [ -w /usr/local ] && [ ! -d "${SYMLINK_DIR}" ]; then
-    # Create /usr/local/bin if it doesn't exist and we can write to /usr/local
-    if [ ! -d "${SYMLINK_DIR}" ]; then
-        mkdir -p "${SYMLINK_DIR}"
-    fi
+# Create ~/.local/bin if it doesn't exist
+if [ ! -d "${SYMLINK_DIR}" ]; then
+    mkdir -p "${SYMLINK_DIR}"
+    print_info "Created directory: ${SYMLINK_DIR}"
+fi
+
+# Create symlink
+if ln -sf "${TARGET_DIR}/devbox.sh" "${SYMLINK_DIR}/devbox" 2>/dev/null; then
+    print_info "Created symlink: ${SYMLINK_DIR}/devbox"
+    SYMLINK_CREATED=true
     
-    # Create symlink
-    if ln -sf "${TARGET_DIR}/devbox.sh" "${SYMLINK_DIR}/devbox" 2>/dev/null; then
-        print_info "Created symlink: ${SYMLINK_DIR}/devbox"
-        SYMLINK_CREATED=true
+    # Check if ~/.local/bin is in PATH
+    if [[ ":$PATH:" != *":${SYMLINK_DIR}:"* ]]; then
+        print_warning "Note: ${SYMLINK_DIR} is not in your PATH"
+        echo "To add it to your PATH, run:"
+        if [ -f "$HOME/.zshrc" ]; then
+            echo "  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc"
+            echo "  source ~/.zshrc"
+        else
+            echo "  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc"
+            echo "  source ~/.bashrc"
+        fi
     fi
 else
-    print_warning "Cannot create symlink in ${SYMLINK_DIR} (requires sudo privileges)"
+    print_warning "Failed to create symlink in ${SYMLINK_DIR}"
 fi
 
 # Installation complete
@@ -187,15 +199,18 @@ echo ""
 echo "To use DevBox:"
 
 if [ "$SYMLINK_CREATED" = true ]; then
-    echo "  1. From any directory, run: devbox"
-    echo "  2. Or run directly: ${TARGET_DIR}/devbox.sh"
+    if [[ ":$PATH:" == *":${SYMLINK_DIR}:"* ]]; then
+        echo "  From any directory, run: devbox"
+    else
+        echo "  After adding ~/.local/bin to PATH, run: devbox"
+        echo "  Or run directly now: ${SYMLINK_DIR}/devbox"
+    fi
 else
-    echo "  1. Run directly: ${TARGET_DIR}/devbox.sh"
+    echo "  Run directly: ${TARGET_DIR}/devbox.sh"
     echo ""
     echo "  For easier access, you can:"
     echo "  - Add to PATH: echo 'export PATH=\"\$PATH:${TARGET_DIR}\"' >> ~/.bashrc"
     echo "  - Create alias: echo 'alias devbox=\"${TARGET_DIR}/devbox.sh\"' >> ~/.bashrc"
-    echo "  - Create symlink (with sudo): sudo ln -s ${TARGET_DIR}/devbox.sh /usr/local/bin/devbox"
 fi
 
 echo ""
