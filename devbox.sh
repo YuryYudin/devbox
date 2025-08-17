@@ -5,6 +5,7 @@ set -euo pipefail
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Function to print colored messages
@@ -18,6 +19,10 @@ print_error() {
 
 print_warning() {
     echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+print_step() {
+    echo -e "${BLUE}[STEP]${NC} $1"
 }
 
 # Check if Docker is installed
@@ -308,7 +313,18 @@ if [[ "${1:-}" == "update" ]]; then
     echo ""
     
     # Update from git if in git repo
-    DEVBOX_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    # Handle symlink case - resolve to actual devbox directory
+    if [ -L "${BASH_SOURCE[0]}" ]; then
+        DEVBOX_DIR="$( cd "$( dirname "$( readlink "${BASH_SOURCE[0]}" )" )" && pwd )"
+    else
+        DEVBOX_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    fi
+    
+    # If not in ~/.devbox, try that location
+    if [ ! -d "${DEVBOX_DIR}/.git" ] && [ -d "$HOME/.devbox/.git" ]; then
+        DEVBOX_DIR="$HOME/.devbox"
+    fi
+    
     if [ -d "${DEVBOX_DIR}/.git" ]; then
         print_step "Checking for DevBox updates from GitHub..."
         
