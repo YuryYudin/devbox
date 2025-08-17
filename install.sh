@@ -79,16 +79,34 @@ if ! docker info &> /dev/null; then
 fi
 print_info "Docker daemon is running ✓"
 
+# Function to check if directory is empty
+is_directory_empty() {
+    [ -z "$(ls -A "$1" 2>/dev/null)" ]
+}
+
 # Handle existing installation
 if [ -d "${TARGET_DIR}" ]; then
-    print_warning "Directory ${TARGET_DIR} already exists."
-    
-    # Check if it's a git repository
-    if [ -d "${TARGET_DIR}/.git" ]; then
-        echo "Existing DevBox installation found (Git repository)."
-        echo -n "Do you want to update to the latest version? (y/N): "
-        read -r response
-        if [[ "$response" =~ ^[Yy]$ ]]; then
+    # Check if directory is empty
+    if is_directory_empty "${TARGET_DIR}"; then
+        print_info "Directory ${TARGET_DIR} exists but is empty. Proceeding with installation."
+    else
+        print_warning "Directory ${TARGET_DIR} already exists and contains files."
+        
+        # Check if it's a git repository
+        if [ -d "${TARGET_DIR}/.git" ]; then
+            echo "Existing DevBox installation found (Git repository)."
+            echo -n "Do you want to update to the latest version? (y/N): "
+            # Fix for curl | bash - read from /dev/tty if available
+            if [ -t 0 ] || [ -e /dev/tty ]; then
+                read -r response < /dev/tty
+            else
+                print_warning "Cannot read user input when piped through curl."
+                print_info "Please run the installer directly:"
+                echo "  curl -fsSL https://raw.githubusercontent.com/YuryYudin/devbox/main/install.sh -o install.sh"
+                echo "  bash install.sh"
+                exit 1
+            fi
+            if [[ "$response" =~ ^[Yy]$ ]]; then
             print_step "Updating DevBox..."
             cd "${TARGET_DIR}"
             
@@ -106,23 +124,33 @@ if [ -d "${TARGET_DIR}" ]; then
             if git stash list | grep -q "Auto-stash before update"; then
                 print_warning "Local changes were stashed. Run 'cd ${TARGET_DIR} && git stash pop' to restore them."
             fi
+            else
+                print_info "Installation cancelled. Use existing installation."
+                exit 0
+            fi
         else
-            print_info "Installation cancelled. Use existing installation."
-            exit 0
+            # Not a git repo, need to backup and reinstall
+            echo "Existing DevBox installation found (not Git-controlled)."
+            echo -n "Do you want to replace it with the Git-controlled version? (y/N): "
+            # Fix for curl | bash - read from /dev/tty if available
+            if [ -t 0 ] || [ -e /dev/tty ]; then
+                read -r response < /dev/tty
+            else
+                print_warning "Cannot read user input when piped through curl."
+                print_info "Please run the installer directly:"
+                echo "  curl -fsSL https://raw.githubusercontent.com/YuryYudin/devbox/main/install.sh -o install.sh"
+                echo "  bash install.sh"
+                exit 1
+            fi
+            if [[ ! "$response" =~ ^[Yy]$ ]]; then
+                print_info "Installation cancelled."
+                exit 0
+            fi
+            print_info "Backing up existing installation..."
+            BACKUP_DIR="${TARGET_DIR}.backup.$(date +%Y%m%d-%H%M%S)"
+            mv "${TARGET_DIR}" "${BACKUP_DIR}"
+            print_info "Existing installation backed up to: ${BACKUP_DIR}"
         fi
-    else
-        # Not a git repo, need to backup and reinstall
-        echo "Existing DevBox installation found (not Git-controlled)."
-        echo -n "Do you want to replace it with the Git-controlled version? (y/N): "
-        read -r response
-        if [[ ! "$response" =~ ^[Yy]$ ]]; then
-            print_info "Installation cancelled."
-            exit 0
-        fi
-        print_info "Backing up existing installation..."
-        BACKUP_DIR="${TARGET_DIR}.backup.$(date +%Y%m%d-%H%M%S)"
-        mv "${TARGET_DIR}" "${BACKUP_DIR}"
-        print_info "Existing installation backed up to: ${BACKUP_DIR}"
     fi
 fi
 

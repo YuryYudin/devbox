@@ -24,8 +24,20 @@ DevBox is a secure, isolated Docker container environment for running Claude Cod
 
 ### Quick Install
 
-Run this command to install DevBox:
+Download and run the installer:
 
+```bash
+# Download the installer
+curl -fsSL https://raw.githubusercontent.com/YuryYudin/devbox/main/install.sh -o install-devbox.sh
+
+# Run it
+bash install-devbox.sh
+
+# Clean up
+rm install-devbox.sh
+```
+
+Or as a one-liner (note: this won't allow interactive prompts):
 ```bash
 curl -fsSL https://raw.githubusercontent.com/YuryYudin/devbox/main/install.sh | bash
 ```
