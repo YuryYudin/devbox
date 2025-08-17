@@ -387,7 +387,7 @@ if [[ "${1:-}" == "update" ]]; then
     echo ""
     
     # Update from git if in git repo
-    local DEVBOX_DIR="$(get_devbox_dir)"
+    DEVBOX_DIR="$(get_devbox_dir)"
     
     if [ -d "${DEVBOX_DIR}/.git" ]; then
         print_step "Checking for DevBox updates from GitHub..."
