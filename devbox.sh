@@ -25,6 +25,81 @@ print_step() {
     echo -e "${BLUE}[STEP]${NC} $1"
 }
 
+# Function to display help information
+show_help() {
+    echo -e "${BLUE}"
+    echo "╔════════════════════════════════════════════════════════════════╗"
+    echo "║                          DevBox Help                          ║"
+    echo "║              Claude Code Docker Container                      ║"
+    echo "╚════════════════════════════════════════════════════════════════╝"
+    echo -e "${NC}"
+    echo ""
+    echo "DevBox provides a secure, isolated Docker environment for Claude Code CLI"
+    echo "with built-in development tools and configurable security features."
+    echo ""
+    echo -e "${GREEN}USAGE:${NC}"
+    echo "  devbox [COMMAND] [OPTIONS]"
+    echo ""
+    echo -e "${GREEN}COMMANDS:${NC}"
+    echo "  update                    Update DevBox and rebuild container with latest packages"
+    echo "  --help, -h               Show this help message"
+    echo ""
+    echo -e "${GREEN}OPTIONS:${NC}"
+    echo "  --enable-sudo            Enable sudo access inside the container"
+    echo "  --disable-firewall       Disable the built-in firewall protection"
+    echo "  --dangerously-skip-permissions"
+    echo "                           Skip Claude Code permission checks (use with caution)"
+    echo "  --no-claude              Start tmux session without Claude Code (manual development)"
+    echo "  --no-tmux                Run without tmux (direct shell or Claude)"
+    echo "  --enable-docker          Enable Docker-in-Docker support (mount Docker socket)"
+    echo ""
+    echo -e "${GREEN}EXAMPLES:${NC}"
+    echo "  devbox                              # Start Claude Code in tmux (default)"
+    echo "  devbox --help                       # Show this help"
+    echo "  devbox update                       # Update DevBox to latest version"
+    echo "  devbox --enable-sudo                # Start with sudo access"
+    echo "  devbox --no-claude                  # Start tmux without Claude (manual dev)"
+    echo "  devbox --no-tmux                    # Run Claude directly (no tmux)"
+    echo "  devbox --no-tmux --no-claude        # Plain bash shell"
+    echo "  devbox --enable-docker              # Enable Docker commands"
+    echo "  devbox --enable-sudo --enable-docker --disable-firewall"
+    echo "                                      # Full development mode"
+    echo "  devbox npm install                  # Run specific command"
+    echo "  devbox python script.py            # Execute script"
+    echo ""
+    echo -e "${GREEN}SECURITY MODES:${NC}"
+    echo "  Default:     Firewall enabled, no sudo, no Docker access"
+    echo "  Development: --enable-sudo --disable-firewall"
+    echo "  Build Mode:  --enable-docker (for Docker-based builds)"
+    echo "  Secure:      Default settings (recommended for untrusted code)"
+    echo ""
+    echo -e "${GREEN}CONFIGURATION:${NC}"
+    echo "  Config Location:    ~/.devbox/"
+    echo "  Authentication:     Automatically saved and restored"
+    echo "  Project Settings:   Per-directory configuration slots"
+    echo "  Updates:           Automatic checking with Git integration"
+    echo ""
+    echo -e "${GREEN}TMUX CONFIGURATION:${NC}"
+    echo "  Prefix Key:         Ctrl+k (instead of default Ctrl+b)"
+    echo "  Split Panes:        Ctrl+k | (vertical), Ctrl+k - (horizontal)"
+    echo "  New Window:         Ctrl+k c"
+    echo "  Next Window:        Ctrl+k n"
+    echo "  Detach Session:     Ctrl+k d"
+    echo "  Mouse Support:      Enabled (click to select, scroll history)"
+    echo ""
+    echo -e "${YELLOW}SECURITY WARNINGS:${NC}"
+    echo "  --enable-sudo:      Grants full system access inside container"
+    echo "  --disable-firewall: Removes network access restrictions" 
+    echo "  --enable-docker:    Grants full access to host Docker daemon"
+    echo "  --dangerously-skip-permissions: Bypasses Claude Code safety checks"
+    echo ""
+    echo -e "${GREEN}MORE INFO:${NC}"
+    echo "  Documentation: https://github.com/YuryYudin/devbox"
+    echo "  Issues:        https://github.com/YuryYudin/devbox/issues"
+    echo "  Claude Code:   https://claude.ai/code"
+    echo ""
+}
+
 # Check if Docker is installed
 if ! command -v docker &> /dev/null; then
     print_error "Docker is not installed."
@@ -396,6 +471,12 @@ CONTAINER_NAME="devbox-${USERNAME}-$(date +%Y%m%d-%H%M%S)"
 
 # Setup Claude configuration before starting container
 setup_claude_config
+
+# Check for help command first
+if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "help" ]]; then
+    show_help
+    exit 0
+fi
 
 # Check for update command first
 if [[ "${1:-}" == "update" ]]; then

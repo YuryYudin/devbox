@@ -93,6 +93,7 @@ Or if you haven't created a symlink:
 
 | Command/Argument | Description | Example |
 |-----------------|-------------|---------|
+| `--help`, `-h`, `help` | Show detailed usage information and all available options | `devbox --help` |
 | `update` | Update DevBox and rebuild container with latest packages | `devbox update` |
 | `--enable-sudo` | Enable sudo access inside the container | `devbox --enable-sudo` |
 | `--disable-firewall` | Disable the built-in firewall protection | `devbox --disable-firewall` |
@@ -105,6 +106,9 @@ Or if you haven't created a symlink:
 **Examples:**
 
 ```bash
+# Show help and all available options
+devbox --help
+
 # Update DevBox and all packages to latest versions
 devbox update
 
