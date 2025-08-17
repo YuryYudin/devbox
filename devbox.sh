@@ -147,6 +147,22 @@ setup_claude_config() {
         cp "${SLOT_DIR}/.claude.json" "${TEMP_CONFIG_DIR}/"
         CONFIG_RESTORED=true
         print_info "Restored project-specific Claude configuration for: $(pwd)"
+    else
+        # Try to find the most recent .claude.json from other slots
+        if [ -d "${SLOTS_DIR}" ]; then
+            # Find the most recently modified .claude.json file in any slot
+            RECENT_CONFIG=$(find "${SLOTS_DIR}" -name ".claude.json" -type f 2>/dev/null | xargs ls -t 2>/dev/null | head -1)
+            
+            if [ -n "$RECENT_CONFIG" ] && [ -f "$RECENT_CONFIG" ]; then
+                # Extract the slot name from the path for informational purposes
+                RECENT_SLOT=$(basename "$(dirname "$RECENT_CONFIG")")
+                
+                cp "$RECENT_CONFIG" "${TEMP_CONFIG_DIR}/.claude.json"
+                CONFIG_RESTORED=true
+                print_info "No project configuration found for: $(pwd)"
+                print_info "Using configuration from most recent project: ${RECENT_SLOT}"
+            fi
+        fi
     fi
     
     if [ "$CONFIG_RESTORED" = false ]; then
