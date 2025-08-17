@@ -89,6 +89,7 @@ if [ -d "${TARGET_DIR}" ]; then
     # Check if directory is empty
     if is_directory_empty "${TARGET_DIR}"; then
         print_info "Directory ${TARGET_DIR} exists but is empty. Proceeding with installation."
+	rmdir ${TARGET_DIR}
     else
         print_warning "Directory ${TARGET_DIR} already exists and contains files."
         
