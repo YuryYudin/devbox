@@ -253,7 +253,13 @@ save_claude_config() {
 # Check for updates from GitHub (only if in git repo)
 DEVBOX_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 if [ -d "${DEVBOX_DIR}/.git" ]; then
-    if check_for_updates; then
+    # Temporarily disable exit on error for update check
+    set +e
+    check_for_updates
+    UPDATE_AVAILABLE=$?
+    set -e
+    
+    if [ $UPDATE_AVAILABLE -eq 0 ]; then
         print_warning "New version of DevBox is available!"
         echo "To update, run: cd ${DEVBOX_DIR} && git pull && ./build.sh"
         echo ""
@@ -294,16 +300,24 @@ if [ -d "${DEVBOX_DIR}/.git" ]; then
 fi
 
 # Check container status
+set +e
 check_container_version
 CHECK_RESULT=$?
+set -e
 
 if [ $CHECK_RESULT -eq 1 ]; then
     # Image doesn't exist
     print_warning "Docker image '${IMAGE_NAME}' not found."
     
-    # Check if we're in the installed location and can auto-build
-    DEVBOX_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-    if [[ "$DEVBOX_DIR" == "$HOME/.devbox" ]] && [ -f "${DEVBOX_DIR}/build.sh" ]; then
+    # Check if we can auto-build (build.sh exists in current devbox directory)
+    # Handle symlink case - resolve to actual devbox directory
+    if [ -L "${BASH_SOURCE[0]}" ]; then
+        DEVBOX_DIR="$( cd "$( dirname "$( readlink "${BASH_SOURCE[0]}" )" )" && pwd )"
+    else
+        DEVBOX_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    fi
+    
+    if [ -f "${DEVBOX_DIR}/build.sh" ]; then
         echo ""
         print_info "Auto-building container for first use..."
         echo ""
@@ -316,6 +330,7 @@ if [ $CHECK_RESULT -eq 1 ]; then
         fi
     else
         print_error "Please run ./build.sh first to build the image."
+        print_info "Or install DevBox properly using: curl -fsSL https://raw.githubusercontent.com/YuryYudin/devbox/main/install.sh | bash"
         exit 1
     fi
 elif [ $CHECK_RESULT -eq 2 ]; then
