@@ -121,7 +121,6 @@ RUN chown $USER_ID:$GROUP_ID /home/$USERNAME/init-firewall /home/$USERNAME/.devb
 
 USER $USERNAME
 RUN bash -c "source $NVM_DIR/nvm.sh && claude --version"
-COPY --chmod=644 .claude.json /home/$USERNAME/.claude.json
 
 WORKDIR /workspace
 USER root
