@@ -120,7 +120,7 @@ generate_slot_name() {
 
 # Function to setup Claude configuration
 setup_claude_config() {
-    local DEVBOX_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    local DEVBOX_DIR="$(get_devbox_dir)"
     local SLOT_NAME=$(generate_slot_name)
     local SLOTS_DIR="${DEVBOX_DIR}/slots"
     local SLOT_DIR="${SLOTS_DIR}/${SLOT_NAME}"
@@ -250,8 +250,27 @@ save_claude_config() {
     fi
 }
 
+# Function to get the actual DevBox directory (resolving symlinks)
+get_devbox_dir() {
+    local script_path="${BASH_SOURCE[0]}"
+    
+    # Resolve symlink if present
+    if [ -L "$script_path" ]; then
+        script_path="$(readlink "$script_path")"
+        # Handle relative symlinks
+        if [[ "$script_path" != /* ]]; then
+            script_path="$(dirname "${BASH_SOURCE[0]}")/$script_path"
+        fi
+    fi
+    
+    # Get the directory containing the resolved script
+    cd "$( dirname "$script_path" )" && pwd
+}
+
+# Get the actual DevBox directory
+DEVBOX_DIR="$(get_devbox_dir)"
+
 # Check for updates from GitHub (only if in git repo)
-DEVBOX_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 if [ -d "${DEVBOX_DIR}/.git" ]; then
     # Temporarily disable exit on error for update check
     set +e
@@ -310,18 +329,13 @@ if [ $CHECK_RESULT -eq 1 ]; then
     print_warning "Docker image '${IMAGE_NAME}' not found."
     
     # Check if we can auto-build (build.sh exists in current devbox directory)
-    # Handle symlink case - resolve to actual devbox directory
-    if [ -L "${BASH_SOURCE[0]}" ]; then
-        DEVBOX_DIR="$( cd "$( dirname "$( readlink "${BASH_SOURCE[0]}" )" )" && pwd )"
-    else
-        DEVBOX_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-    fi
+    local AUTO_BUILD_DEVBOX_DIR="$(get_devbox_dir)"
     
-    if [ -f "${DEVBOX_DIR}/build.sh" ]; then
+    if [ -f "${AUTO_BUILD_DEVBOX_DIR}/build.sh" ]; then
         echo ""
         print_info "Auto-building container for first use..."
         echo ""
-        if "${DEVBOX_DIR}/build.sh"; then
+        if "${AUTO_BUILD_DEVBOX_DIR}/build.sh"; then
             print_info "Container built successfully!"
             echo ""
         else
@@ -341,10 +355,10 @@ elif [ $CHECK_RESULT -eq 2 ]; then
     echo -n "Do you want to rebuild the container now? (y/N): "
     read -r response
     if [[ "$response" =~ ^[Yy]$ ]]; then
-        DEVBOX_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+        local REBUILD_DEVBOX_DIR="$(get_devbox_dir)"
         print_info "Rebuilding container..."
         echo ""
-        if "${DEVBOX_DIR}/build.sh"; then
+        if "${REBUILD_DEVBOX_DIR}/build.sh"; then
             print_info "Container rebuilt successfully!"
             echo ""
         else
@@ -373,17 +387,7 @@ if [[ "${1:-}" == "update" ]]; then
     echo ""
     
     # Update from git if in git repo
-    # Handle symlink case - resolve to actual devbox directory
-    if [ -L "${BASH_SOURCE[0]}" ]; then
-        DEVBOX_DIR="$( cd "$( dirname "$( readlink "${BASH_SOURCE[0]}" )" )" && pwd )"
-    else
-        DEVBOX_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-    fi
-    
-    # If not in ~/.devbox, try that location
-    if [ ! -d "${DEVBOX_DIR}/.git" ] && [ -d "$HOME/.devbox/.git" ]; then
-        DEVBOX_DIR="$HOME/.devbox"
-    fi
+    local DEVBOX_DIR="$(get_devbox_dir)"
     
     if [ -d "${DEVBOX_DIR}/.git" ]; then
         print_step "Checking for DevBox updates from GitHub..."
