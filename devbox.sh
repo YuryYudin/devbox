@@ -303,7 +303,7 @@ CONTAINER_NAME="devbox-${USERNAME}-$(date +%Y%m%d-%H%M%S)"
 setup_claude_config
 
 # Check for update command first
-if [[ "$1" == "update" ]]; then
+if [[ "${1:-}" == "update" ]]; then
     print_info "Starting DevBox update process..."
     echo ""
     
