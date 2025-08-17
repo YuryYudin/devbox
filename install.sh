@@ -90,6 +90,7 @@ if [ -d "${TARGET_DIR}" ]; then
     if is_directory_empty "${TARGET_DIR}"; then
         print_info "Directory ${TARGET_DIR} exists but is empty. Proceeding with installation."
 	rmdir ${TARGET_DIR}
+	print_info "Removed empty target dir."
     else
         print_warning "Directory ${TARGET_DIR} already exists and contains files."
         
