@@ -43,13 +43,13 @@ if [ -d "/tmp/claude-config" ]; then
     # Copy .claude folder if it exists
     if [ -d "/tmp/claude-config/.claude" ]; then
         cp -r "/tmp/claude-config/.claude" "/home/DOCKERUSER/"
-        chown -R DOCKERUSER:DOCKERUSER "/home/DOCKERUSER/.claude"
+        chown -R ${USER_ID}:${GROUP_ID} "/home/DOCKERUSER/.claude"
     fi
     
     # Copy .claude.json if it exists
     if [ -f "/tmp/claude-config/.claude.json" ]; then
         cp "/tmp/claude-config/.claude.json" "/home/DOCKERUSER/"
-        chown DOCKERUSER:DOCKERUSER "/home/DOCKERUSER/.claude.json"
+        chown ${USER_ID}:${GROUP_ID} "/home/DOCKERUSER/.claude.json"
     fi
 fi
 
