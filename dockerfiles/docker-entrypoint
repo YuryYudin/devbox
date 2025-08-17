@@ -13,6 +13,7 @@ DISABLE_FIREWALL=false
 SKIP_PERMISSIONS=false
 NO_CLAUDE=false
 NO_TMUX=false
+ENABLE_DOCKER=false
 new_args=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -21,6 +22,7 @@ while [[ $# -gt 0 ]]; do
         --dangerously-skip-permissions) SKIP_PERMISSIONS=true; shift ;;
         --no-claude) NO_CLAUDE=true; shift ;;
         --no-tmux) NO_TMUX=true; shift ;;
+        --enable-docker) ENABLE_DOCKER=true; shift ;;
         *) new_args+=("$1"); shift ;;
     esac
 done
@@ -57,6 +59,22 @@ fi
 
 if [ -f /home/DOCKERUSER/init-firewall ]; then
     sudo /home/DOCKERUSER/init-firewall || true
+fi
+
+# Handle Docker group permissions for Docker-in-Docker
+if [ "$ENABLE_DOCKER" = "true" ] && [ -S "/var/run/docker.sock" ]; then
+    # Get the group ID of the docker socket
+    DOCKER_GID=$(stat -c '%g' /var/run/docker.sock 2>/dev/null || echo "")
+    
+    if [ -n "$DOCKER_GID" ]; then
+        # Create docker group with the same GID if it doesn't exist
+        if ! getent group docker >/dev/null; then
+            groupadd -g "$DOCKER_GID" docker
+        fi
+        
+        # Add user to docker group
+        usermod -a -G docker DOCKERUSER
+    fi
 fi
 
 # Handle sudo access based on --enable-sudo flag

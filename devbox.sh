@@ -463,10 +463,16 @@ fi
 DOCKER_ARGS=""
 ENTRYPOINT_ARGS=""
 INTERACTIVE=true
+ENABLE_DOCKER=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --enable-sudo|--disable-firewall|--dangerously-skip-permissions|--no-claude|--no-tmux)
+            ENTRYPOINT_ARGS="${ENTRYPOINT_ARGS} $1"
+            shift
+            ;;
+        --enable-docker)
+            ENABLE_DOCKER=true
             ENTRYPOINT_ARGS="${ENTRYPOINT_ARGS} $1"
             shift
             ;;
@@ -510,6 +516,16 @@ DOCKER_CMD="${DOCKER_CMD} --security-opt apparmor=unconfined"
 # Mount the temp config directory
 TEMP_CONFIG_DIR="/tmp/devbox-claude-${CONTAINER_NAME}"
 DOCKER_CMD="${DOCKER_CMD} -v \"${TEMP_CONFIG_DIR}:/tmp/claude-config\""
+
+# Mount Docker socket if Docker is enabled
+if [ "$ENABLE_DOCKER" = true ]; then
+    if [ -S "/var/run/docker.sock" ]; then
+        DOCKER_CMD="${DOCKER_CMD} -v /var/run/docker.sock:/var/run/docker.sock"
+        print_info "Docker-in-Docker enabled (mounting Docker socket)"
+    else
+        print_warning "Docker socket not found at /var/run/docker.sock - Docker commands may not work"
+    fi
+fi
 
 # Add environment variables for terminal
 if [ -n "${TERM:-}" ]; then

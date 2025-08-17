@@ -99,6 +99,7 @@ Or if you haven't created a symlink:
 | `--dangerously-skip-permissions` | Skip Claude Code permission checks (use with caution) | `devbox --dangerously-skip-permissions` |
 | `--no-claude` | Start tmux session without Claude Code (manual development mode) | `devbox --no-claude` |
 | `--no-tmux` | Run without tmux (direct shell or Claude) | `devbox --no-tmux` |
+| `--enable-docker` | Enable Docker-in-Docker support (mount Docker socket) | `devbox --enable-docker` |
 | (any command) | Run a specific command in the container | `devbox npm install` |
 
 **Examples:**
@@ -122,11 +123,14 @@ devbox --no-tmux
 # Run Claude with permission checks bypassed
 devbox --dangerously-skip-permissions
 
+# Enable Docker for build processes
+devbox --enable-docker
+
 # Execute a single command
 devbox python script.py
 
-# Combine options
-devbox --enable-sudo --disable-firewall
+# Combine options for development with Docker
+devbox --enable-sudo --enable-docker --disable-firewall
 
 # Run npm commands
 devbox npm install
@@ -236,6 +240,11 @@ your-api.example.com
 - tcpdump
 - dig/nslookup
 
+**Docker Tools (when `--enable-docker` is used):**
+- Docker CLI
+- Docker Buildx
+- Docker Compose
+
 **Claude Tools:**
 - Claude Code CLI (`claude`)
 
@@ -288,6 +297,54 @@ DevBox automatically saves your Claude Code authentication and configuration:
 - **Project settings** are saved per directory in `~/.devbox/slots/<project_name>/`
 - First-time users will need to authenticate with `/login` in Claude Code
 - Subsequent runs will restore your authentication automatically
+
+### Docker-in-Docker Support
+
+DevBox supports running Docker commands inside the container for build processes and containerized development:
+
+#### Enabling Docker Support
+
+Use the `--enable-docker` flag to mount the host Docker socket:
+
+```bash
+devbox --enable-docker
+```
+
+#### What Gets Enabled
+
+- **Docker CLI**: Full Docker command-line interface
+- **Docker Buildx**: Advanced build features
+- **Docker Compose**: Multi-container orchestration
+- **Socket Mount**: `/var/run/docker.sock` mounted from host
+- **Group Permissions**: User automatically added to docker group
+
+#### Security Considerations
+
+⚠️ **Important**: Docker-in-Docker gives the container full access to the host's Docker daemon. This means:
+
+- Container can create, modify, and delete any Docker containers/images on the host
+- Container can access host filesystem through volume mounts
+- Use only with trusted code and in secure environments
+
+#### Use Cases
+
+- Building Docker images for your projects
+- Running containerized services for development
+- Testing Docker-based deployments
+- Multi-container development with Docker Compose
+
+#### Example Workflow
+
+```bash
+# Start DevBox with Docker support
+devbox --enable-docker
+
+# Inside the container, you can now use Docker:
+docker --version
+docker build -t myapp .
+docker run -p 8080:80 myapp
+docker-compose up -d
+```
 
 ## Troubleshooting
 
