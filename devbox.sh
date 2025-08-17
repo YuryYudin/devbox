@@ -42,6 +42,26 @@ fi
 # Default image name
 IMAGE_NAME="devbox:latest"
 
+# Function to check for updates from GitHub
+check_for_updates() {
+    local DEVBOX_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    
+    # Only check for updates if we're in a git repository
+    if [ -d "${DEVBOX_DIR}/.git" ]; then
+        # Fetch latest changes without merging
+        git -C "${DEVBOX_DIR}" fetch origin main &>/dev/null || return 1
+        
+        # Check if we're behind
+        LOCAL=$(git -C "${DEVBOX_DIR}" rev-parse HEAD 2>/dev/null)
+        REMOTE=$(git -C "${DEVBOX_DIR}" rev-parse origin/main 2>/dev/null)
+        
+        if [ "$LOCAL" != "$REMOTE" ]; then
+            return 0  # Updates available
+        fi
+    fi
+    return 1  # No updates or not a git repo
+}
+
 # Function to check if container needs rebuild
 check_container_version() {
     local needs_rebuild=false
@@ -85,6 +105,49 @@ check_container_version() {
     
     return 0  # Image exists and is up to date
 }
+
+# Check for updates from GitHub (only if in git repo)
+DEVBOX_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+if [ -d "${DEVBOX_DIR}/.git" ]; then
+    if check_for_updates; then
+        print_warning "New version of DevBox is available!"
+        echo "To update, run: cd ${DEVBOX_DIR} && git pull && ./build.sh"
+        echo ""
+        echo -n "Do you want to update now? (y/N): "
+        read -r response
+        if [[ "$response" =~ ^[Yy]$ ]]; then
+            print_info "Updating DevBox..."
+            
+            # Stash any local changes
+            if ! git -C "${DEVBOX_DIR}" diff --quiet || ! git -C "${DEVBOX_DIR}" diff --cached --quiet; then
+                print_info "Stashing local changes..."
+                git -C "${DEVBOX_DIR}" stash push -m "Auto-stash before update $(date +%Y-%m-%d_%H:%M:%S)"
+            fi
+            
+            # Pull latest changes
+            if git -C "${DEVBOX_DIR}" pull origin main; then
+                print_info "DevBox updated successfully!"
+                
+                # Rebuild container
+                print_info "Rebuilding container with new version..."
+                if "${DEVBOX_DIR}/build.sh"; then
+                    print_info "Container rebuilt successfully!"
+                    echo ""
+                    echo "Please restart devbox to use the new version."
+                    exit 0
+                else
+                    print_error "Failed to rebuild container after update."
+                    exit 1
+                fi
+            else
+                print_error "Failed to update DevBox."
+            fi
+        else
+            print_info "Continuing with current version."
+            echo ""
+        fi
+    fi
+fi
 
 # Check container status
 check_container_version

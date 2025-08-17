@@ -92,7 +92,12 @@ print_info "Building Docker image: ${FULL_IMAGE_NAME}"
 # Copy docker-entrypoint.sh to the expected name for the Dockerfile
 cp "${DOCKERFILE_DIR}/docker-entrypoint" "${DOCKERFILE_DIR}/docker-entrypoint.sh"
 
-cp ~/.claude.json ${DOCKERFILE_DIR}/.claude.json
+# Copy .claude.json if it exists, otherwise create an empty one
+if [ -f ~/.claude.json ]; then
+    cp ~/.claude.json ${DOCKERFILE_DIR}/.claude.json
+else
+    echo '{}' > ${DOCKERFILE_DIR}/.claude.json
+fi
 
 # Build the Docker image
 docker build \

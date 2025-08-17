@@ -33,11 +33,22 @@ echo "║     Claude Code Docker Container      ║"
 echo "╚═══════════════════════════════════════╝"
 echo -e "${NC}"
 
-# Get the script directory
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
-# Define target directory
+# Configuration
+GITHUB_REPO="https://github.com/YuryYudin/devbox.git"
 TARGET_DIR="$HOME/.devbox"
+
+# Check if Git is installed
+print_step "Checking Git installation..."
+if ! command -v git &> /dev/null; then
+    print_error "Git is not installed."
+    echo ""
+    echo "Please install Git first:"
+    echo "  - macOS: brew install git"
+    echo "  - Linux: sudo apt-get install git (or equivalent)"
+    echo "  - Windows: https://git-scm.com/download/win"
+    exit 1
+fi
+print_info "Git is installed ✓"
 
 # Check if Docker is installed
 print_step "Checking Docker installation..."
@@ -68,66 +79,70 @@ if ! docker info &> /dev/null; then
 fi
 print_info "Docker daemon is running ✓"
 
-# Check if required files exist in source
-print_step "Verifying source files..."
-REQUIRED_ITEMS=(
-    "dockerfiles"
-    "dockerfiles/Dockerfile"
-    "dockerfiles/docker-entrypoint"
-    "dockerfiles/init-firewall"
-    "dockerfiles/allowlist"
-    "build.sh"
-    "devbox.sh"
-)
-
-for item in "${REQUIRED_ITEMS[@]}"; do
-    if [ ! -e "${SCRIPT_DIR}/${item}" ]; then
-        print_error "Required file/directory not found: ${item}"
-        exit 1
-    fi
-done
-print_info "All source files present ✓"
-
-# Create target directory if it doesn't exist
-print_step "Setting up DevBox directory..."
+# Handle existing installation
 if [ -d "${TARGET_DIR}" ]; then
     print_warning "Directory ${TARGET_DIR} already exists."
-    echo -n "Do you want to overwrite the existing installation? (y/N): "
-    read -r response
-    if [[ ! "$response" =~ ^[Yy]$ ]]; then
-        print_info "Installation cancelled."
-        exit 0
+    
+    # Check if it's a git repository
+    if [ -d "${TARGET_DIR}/.git" ]; then
+        echo "Existing DevBox installation found (Git repository)."
+        echo -n "Do you want to update to the latest version? (y/N): "
+        read -r response
+        if [[ "$response" =~ ^[Yy]$ ]]; then
+            print_step "Updating DevBox..."
+            cd "${TARGET_DIR}"
+            
+            # Stash any local changes
+            if ! git diff --quiet || ! git diff --cached --quiet; then
+                print_info "Stashing local changes..."
+                git stash push -m "Auto-stash before update $(date +%Y-%m-%d_%H:%M:%S)"
+            fi
+            
+            # Pull latest changes
+            git pull origin main
+            print_info "DevBox updated to latest version!"
+            
+            # Check if there were stashed changes
+            if git stash list | grep -q "Auto-stash before update"; then
+                print_warning "Local changes were stashed. Run 'cd ${TARGET_DIR} && git stash pop' to restore them."
+            fi
+        else
+            print_info "Installation cancelled. Use existing installation."
+            exit 0
+        fi
+    else
+        # Not a git repo, need to backup and reinstall
+        echo "Existing DevBox installation found (not Git-controlled)."
+        echo -n "Do you want to replace it with the Git-controlled version? (y/N): "
+        read -r response
+        if [[ ! "$response" =~ ^[Yy]$ ]]; then
+            print_info "Installation cancelled."
+            exit 0
+        fi
+        print_info "Backing up existing installation..."
+        BACKUP_DIR="${TARGET_DIR}.backup.$(date +%Y%m%d-%H%M%S)"
+        mv "${TARGET_DIR}" "${BACKUP_DIR}"
+        print_info "Existing installation backed up to: ${BACKUP_DIR}"
     fi
-    print_info "Backing up existing installation..."
-    BACKUP_DIR="${TARGET_DIR}.backup.$(date +%Y%m%d-%H%M%S)"
-    mv "${TARGET_DIR}" "${BACKUP_DIR}"
-    print_info "Existing installation backed up to: ${BACKUP_DIR}"
 fi
 
-mkdir -p "${TARGET_DIR}"
-print_info "Created directory: ${TARGET_DIR}"
-
-# Copy files to target directory
-print_step "Copying files to ${TARGET_DIR}..."
-
-# Copy dockerfiles directory
-cp -r "${SCRIPT_DIR}/dockerfiles" "${TARGET_DIR}/"
-print_info "Copied dockerfiles directory"
-
-# Copy scripts
-cp "${SCRIPT_DIR}/build.sh" "${TARGET_DIR}/"
-cp "${SCRIPT_DIR}/devbox.sh" "${TARGET_DIR}/"
-print_info "Copied build.sh and devbox.sh scripts"
+# Clone or update the repository
+if [ ! -d "${TARGET_DIR}" ]; then
+    print_step "Cloning DevBox repository..."
+    git clone "${GITHUB_REPO}" "${TARGET_DIR}"
+    print_info "Repository cloned successfully!"
+else
+    # If we get here, we've already updated above
+    print_info "Using updated repository."
+fi
 
 # Make scripts executable
+print_step "Setting up permissions..."
 chmod +x "${TARGET_DIR}/build.sh"
 chmod +x "${TARGET_DIR}/devbox.sh"
 chmod +x "${TARGET_DIR}/dockerfiles/docker-entrypoint"
 chmod +x "${TARGET_DIR}/dockerfiles/init-firewall"
-print_info "Made scripts executable"
-
-# Create a version file to track installation
-echo "$(date +%Y-%m-%d_%H:%M:%S)" > "${TARGET_DIR}/.installed"
+print_info "Scripts made executable"
 
 # Build the Docker container
 print_step "Building Docker container..."
@@ -167,6 +182,7 @@ echo -e "${GREEN}       Installation completed successfully!${NC}"
 echo -e "${GREEN}═══════════════════════════════════════════════════════════════${NC}"
 echo ""
 echo "DevBox has been installed to: ${TARGET_DIR}"
+echo "Repository: ${GITHUB_REPO}"
 echo ""
 echo "To use DevBox:"
 
@@ -182,6 +198,9 @@ else
     echo "  - Create symlink (with sudo): sudo ln -s ${TARGET_DIR}/devbox.sh /usr/local/bin/devbox"
 fi
 
+echo ""
+echo "To update DevBox later:"
+echo "  cd ${TARGET_DIR} && git pull && ./build.sh"
 echo ""
 echo "Options:"
 echo "  --enable-sudo       : Enable sudo in container"
