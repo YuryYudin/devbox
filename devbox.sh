@@ -461,7 +461,6 @@ fi
 # Build the Docker run command
 DOCKER_CMD="docker run"
 DOCKER_CMD="${DOCKER_CMD} ${DOCKER_TTY_FLAGS}"
-DOCKER_CMD="${DOCKER_CMD} --rm"
 DOCKER_CMD="${DOCKER_CMD} --name ${CONTAINER_NAME}"
 #DOCKER_CMD="${DOCKER_CMD} --user ${USER_ID}:${GROUP_ID}"
 DOCKER_CMD="${DOCKER_CMD} -v \"${CURRENT_DIR}:/workspace\""
@@ -493,6 +492,10 @@ EXIT_CODE=$?
 
 # Save Claude configuration after container exits
 save_claude_config "${CONTAINER_NAME}"
+
+# Clean up container after saving config
+print_info "Cleaning up container..."
+docker rm "${CONTAINER_NAME}" &>/dev/null || true
 
 # Container has exited
 if [ $EXIT_CODE -eq 0 ]; then
