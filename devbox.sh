@@ -164,44 +164,89 @@ save_claude_config() {
     local CONTAINER_NAME="$1"
     local TEMP_CONFIG_DIR="/tmp/devbox-claude-${CONTAINER_NAME}"
     
+    print_info "Saving Claude configuration..."
+    
+    # Check if temp config directory exists
     if [ ! -f "${TEMP_CONFIG_DIR}/.slot_name" ]; then
+        print_warning "No configuration metadata found. Skipping save."
         return
     fi
     
-    local SLOT_NAME=$(cat "${TEMP_CONFIG_DIR}/.slot_name")
-    local SLOT_DIR=$(cat "${TEMP_CONFIG_DIR}/.slot_dir")
-    local CLAUDE_CONFIGS_DIR=$(cat "${TEMP_CONFIG_DIR}/.claude_configs_dir")
+    # Read configuration paths
+    local SLOT_NAME=$(cat "${TEMP_CONFIG_DIR}/.slot_name" 2>/dev/null)
+    local SLOT_DIR=$(cat "${TEMP_CONFIG_DIR}/.slot_dir" 2>/dev/null)
+    local CLAUDE_CONFIGS_DIR=$(cat "${TEMP_CONFIG_DIR}/.claude_configs_dir" 2>/dev/null)
+    
+    if [ -z "$SLOT_NAME" ] || [ -z "$SLOT_DIR" ] || [ -z "$CLAUDE_CONFIGS_DIR" ]; then
+        print_error "Invalid configuration metadata. Cannot save."
+        rm -rf "${TEMP_CONFIG_DIR}" 2>/dev/null
+        return
+    fi
     
     # Create directories if needed
-    mkdir -p "${SLOT_DIR}"
-    mkdir -p "${CLAUDE_CONFIGS_DIR}"
+    mkdir -p "${SLOT_DIR}" 2>/dev/null
+    mkdir -p "${CLAUDE_CONFIGS_DIR}" 2>/dev/null
     
-    # Copy configuration from container
+    # Check if container still exists (it should be stopped but not removed yet)
+    if ! docker container inspect "${CONTAINER_NAME}" &>/dev/null; then
+        print_warning "Container ${CONTAINER_NAME} not found. Cannot save configuration."
+        rm -rf "${TEMP_CONFIG_DIR}" 2>/dev/null
+        return
+    fi
+    
     local CONFIG_SAVED=false
+    local CLAUDE_SAVED=false
+    local JSON_SAVED=false
     
     # Save .claude folder (authentication tokens)
+    print_info "  → Checking for authentication data..."
     if docker cp "${CONTAINER_NAME}:/home/${USERNAME}/.claude" "${TEMP_CONFIG_DIR}/.claude-new" 2>/dev/null; then
         if [ -d "${TEMP_CONFIG_DIR}/.claude-new" ]; then
-            rm -rf "${CLAUDE_CONFIGS_DIR}/.claude"
-            mv "${TEMP_CONFIG_DIR}/.claude-new" "${CLAUDE_CONFIGS_DIR}/.claude"
-            CONFIG_SAVED=true
+            rm -rf "${CLAUDE_CONFIGS_DIR}/.claude" 2>/dev/null
+            if mv "${TEMP_CONFIG_DIR}/.claude-new" "${CLAUDE_CONFIGS_DIR}/.claude" 2>/dev/null; then
+                print_info "  ✓ Authentication data saved"
+                CONFIG_SAVED=true
+                CLAUDE_SAVED=true
+            else
+                print_warning "  ✗ Failed to move authentication data"
+            fi
         fi
+    else
+        print_info "  - No authentication data found (normal for first run)"
     fi
     
     # Save .claude.json (project configuration)
+    print_info "  → Checking for project configuration..."
     if docker cp "${CONTAINER_NAME}:/home/${USERNAME}/.claude.json" "${TEMP_CONFIG_DIR}/.claude.json-new" 2>/dev/null; then
         if [ -f "${TEMP_CONFIG_DIR}/.claude.json-new" ]; then
-            mkdir -p "${SLOT_DIR}"
-            mv "${TEMP_CONFIG_DIR}/.claude.json-new" "${SLOT_DIR}/.claude.json"
-            CONFIG_SAVED=true
+            if mv "${TEMP_CONFIG_DIR}/.claude.json-new" "${SLOT_DIR}/.claude.json" 2>/dev/null; then
+                print_info "  ✓ Project configuration saved for slot: ${SLOT_NAME}"
+                CONFIG_SAVED=true
+                JSON_SAVED=true
+            else
+                print_warning "  ✗ Failed to move project configuration"
+            fi
         fi
+    else
+        print_info "  - No project configuration found (normal for first run)"
     fi
     
     # Clean up temp directory
-    rm -rf "${TEMP_CONFIG_DIR}"
+    rm -rf "${TEMP_CONFIG_DIR}" 2>/dev/null
     
+    # Summary message
     if [ "$CONFIG_SAVED" = true ]; then
-        print_info "Claude configuration saved for future use"
+        echo ""
+        print_info "Configuration persistence summary:"
+        if [ "$CLAUDE_SAVED" = true ]; then
+            print_info "  • Authentication: Saved to shared storage"
+        fi
+        if [ "$JSON_SAVED" = true ]; then
+            print_info "  • Project settings: Saved for directory $(pwd)"
+        fi
+        print_info "  • Next run will restore your Claude configuration automatically"
+    else
+        print_info "No Claude configuration changes to save"
     fi
 }
 

@@ -2,7 +2,7 @@ FROM ubuntu:24.04
 ARG USER_ID GROUP_ID USERNAME NODE_VERSION
 
 # Set non-interactive mode
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Set timezone to BST
 RUN ln -sf /usr/share/zoneinfo/Europe/London /etc/localtime
