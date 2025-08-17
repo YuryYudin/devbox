@@ -1,0 +1,66 @@
+#!/bin/bash
+set -euo pipefail
+
+# Ensure PATH includes user's local bin directory
+# This will be substituted with actual username during build
+export PATH="/home/DOCKERUSER/.local/bin:$PATH"
+
+# Also set PATH for runuser commands
+export RUNUSER_PATH="/home/DOCKERUSER/.local/bin:$PATH"
+
+ENABLE_SUDO=false
+DISABLE_FIREWALL=false
+new_args=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --enable-sudo) ENABLE_SUDO=true; shift ;;
+        --disable-firewall) DISABLE_FIREWALL=true; shift ;;
+	--claude-flow) ENABLE_CLAUDE_FLOW=true; shift ;;
+        *) new_args+=("$1"); shift ;;
+    esac
+done
+if [[ ${#new_args[@]} -gt 0 ]]; then
+    set -- "${new_args[@]}"
+else
+    set --
+fi
+export DISABLE_FIREWALL
+
+if [[ "${ENABLE_CLAUDE_FLOW:-false}" == "true" ]]; then
+  export ENABLE_CLAUDE_FLOW
+  CLAUDE_CODE="claude --dangerously-skip-permissions && claude-flow init"
+else
+  CLAUDE_CODE="claude"
+fi
+
+if [ -f /home/DOCKERUSER/init-firewall ]; then
+    sudo /home/DOCKERUSER/init-firewall || true
+fi
+
+# Handle sudo access based on --enable-sudo flag
+# Note: DOCKERUSER user already has sudoers entry from Dockerfile
+if [ "$ENABLE_SUDO" != "true" ]; then
+    # Remove sudo access if --enable-sudo wasn't passed
+    sudo rm -f /etc/sudoers.d/DOCKERUSER
+fi
+
+cd /home/DOCKERUSER
+
+if [[ $# -eq 0 ]]; then
+  exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd /workspace && exec tmux new-session claude"
+else
+  exec runuser -u DOCKERUSER -- bash 
+fi
+
+cd /workspace
+
+# Set DEVBOX_SLOT_NAME based on workspace directory name
+DEVBOX_SLOT_NAME=$(basename "$(pwd)")
+export DEVBOX_SLOT_NAME
+
+# After claude exits, copy .claude.json if it was created
+mkdir -p $HOME/.devbox/${CLAUDEBOX_SLOT_NAME}
+if [[ -f "$HOME/.claude.json" ]] && [[ ! -f "$HOME/.devbox/${CLAUDEBOX_SLOT_NAME}/.claude.json" ]]; then
+   cp "$HOME/.claude.json" "$HOME/.devbox/${CLAUDEBOX_SLOT_NAME}/.claude.json"
+fi
+
