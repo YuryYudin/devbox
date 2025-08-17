@@ -77,10 +77,11 @@ Or if you haven't created a symlink:
 
 ### Command-Line Arguments
 
-#### devbox.sh Arguments
+#### devbox.sh Commands and Arguments
 
-| Argument | Description | Example |
-|----------|-------------|---------|
+| Command/Argument | Description | Example |
+|-----------------|-------------|---------|
+| `update` | Update DevBox and rebuild container with latest packages | `devbox update` |
 | `--enable-sudo` | Enable sudo access inside the container | `devbox --enable-sudo` |
 | `--disable-firewall` | Disable the built-in firewall protection | `devbox --disable-firewall` |
 | `--dangerously-skip-permissions` | Skip Claude Code permission checks (use with caution) | `devbox --dangerously-skip-permissions` |
@@ -90,6 +91,9 @@ Or if you haven't created a symlink:
 **Examples:**
 
 ```bash
+# Update DevBox and all packages to latest versions
+devbox update
+
 # Start interactive shell with sudo enabled
 devbox --enable-sudo
 
@@ -112,10 +116,19 @@ devbox npm run build
 
 ### Updating DevBox
 
-DevBox automatically checks for updates when you run it. You can:
+DevBox provides multiple ways to stay up to date:
 
-1. **Accept the update prompt** when starting DevBox
-2. **Manually update** at any time:
+1. **Use the update command** (recommended):
+```bash
+devbox update
+```
+This will:
+- Pull the latest DevBox code from GitHub
+- Rebuild the container with the latest versions of Claude Code, claude-flow, and all other packages
+
+2. **Accept the update prompt** when starting DevBox (only updates code, not packages)
+
+3. **Manually update** for more control:
 ```bash
 cd ~/.devbox && git pull && ./build.sh
 ```

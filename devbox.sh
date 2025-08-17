@@ -302,6 +302,67 @@ CONTAINER_NAME="devbox-${USERNAME}-$(date +%Y%m%d-%H%M%S)"
 # Setup Claude configuration before starting container
 setup_claude_config
 
+# Check for update command first
+if [[ "$1" == "update" ]]; then
+    print_info "Starting DevBox update process..."
+    echo ""
+    
+    # Update from git if in git repo
+    DEVBOX_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    if [ -d "${DEVBOX_DIR}/.git" ]; then
+        print_step "Checking for DevBox updates from GitHub..."
+        
+        # Fetch latest changes
+        if git -C "${DEVBOX_DIR}" fetch origin main &>/dev/null; then
+            LOCAL=$(git -C "${DEVBOX_DIR}" rev-parse HEAD 2>/dev/null)
+            REMOTE=$(git -C "${DEVBOX_DIR}" rev-parse origin/main 2>/dev/null)
+            
+            if [ "$LOCAL" != "$REMOTE" ]; then
+                print_info "New DevBox version available. Updating..."
+                
+                # Stash any local changes
+                if ! git -C "${DEVBOX_DIR}" diff --quiet || ! git -C "${DEVBOX_DIR}" diff --cached --quiet; then
+                    print_info "Stashing local changes..."
+                    git -C "${DEVBOX_DIR}" stash push -m "Auto-stash before update $(date +%Y-%m-%d_%H:%M:%S)"
+                fi
+                
+                # Pull latest changes
+                if git -C "${DEVBOX_DIR}" pull origin main; then
+                    print_info "DevBox code updated successfully!"
+                else
+                    print_error "Failed to update DevBox code."
+                    exit 1
+                fi
+            else
+                print_info "DevBox is already up to date."
+            fi
+        else
+            print_warning "Could not check for updates (network issue?)."
+        fi
+    else
+        print_info "DevBox is not a git repository. Skipping code update."
+    fi
+    
+    # Always rebuild container to get latest packages
+    echo ""
+    print_step "Rebuilding container with latest packages..."
+    print_info "This will update Claude Code, claude-flow, and all other packages to their latest versions."
+    echo ""
+    
+    if "${DEVBOX_DIR}/build.sh"; then
+        echo ""
+        print_info "✅ DevBox update completed successfully!"
+        print_info "Container has been rebuilt with the latest versions of all packages."
+        echo ""
+        echo "You can now use DevBox with the latest updates."
+    else
+        print_error "Failed to rebuild container."
+        exit 1
+    fi
+    
+    exit 0
+fi
+
 # Parse command line arguments
 DOCKER_ARGS=""
 ENTRYPOINT_ARGS=""
