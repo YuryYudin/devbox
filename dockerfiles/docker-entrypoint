@@ -67,13 +67,19 @@ if [ "$ENABLE_DOCKER" = "true" ] && [ -S "/var/run/docker.sock" ]; then
     DOCKER_GID=$(stat -c '%g' /var/run/docker.sock 2>/dev/null || echo "")
     
     if [ -n "$DOCKER_GID" ]; then
-        # Create docker group with the same GID if it doesn't exist
-        if ! getent group docker >/dev/null; then
-            groupadd -g "$DOCKER_GID" docker
+        if [ "$DOCKER_GID" = "0" ]; then
+            # Docker socket is owned by root group (GID 0)
+            # Add user to root group to access Docker socket
+            usermod -a -G root DOCKERUSER
+        else
+            # Create docker group with the same GID if it doesn't exist
+            if ! getent group docker >/dev/null; then
+                groupadd -g "$DOCKER_GID" docker
+            fi
+            
+            # Add user to docker group
+            usermod -a -G docker DOCKERUSER
         fi
-        
-        # Add user to docker group
-        usermod -a -G docker DOCKERUSER
     fi
 fi
 
