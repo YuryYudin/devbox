@@ -90,6 +90,20 @@ if [ "$ENABLE_SUDO" != "true" ]; then
     sudo rm -f /etc/sudoers.d/DOCKERUSER
 fi
 
+# Determine workspace path - use environment variable if set, fallback to /workspace
+WORKSPACE_PATH="${WORKSPACE_PATH:-/workspace}"
+
+# Ensure workspace directory exists and has proper permissions
+if [ ! -d "$WORKSPACE_PATH" ]; then
+    # Create parent directories if they don't exist
+    sudo mkdir -p "$(dirname "$WORKSPACE_PATH")"
+    sudo mkdir -p "$WORKSPACE_PATH"
+    sudo chown ${USER_ID}:${GROUP_ID} "$WORKSPACE_PATH"
+elif [ ! -w "$WORKSPACE_PATH" ]; then
+    # Fix permissions if directory exists but isn't writable
+    sudo chown ${USER_ID}:${GROUP_ID} "$WORKSPACE_PATH"
+fi
+
 cd /home/DOCKERUSER
 
 if [[ $# -eq 0 ]]; then
@@ -98,23 +112,23 @@ if [[ $# -eq 0 ]]; then
     # No tmux mode
     if [ "$NO_CLAUDE" = true ]; then
       # Just bash, no tmux, no claude
-      exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd /workspace && exec bash"
+      exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd '$WORKSPACE_PATH' && exec bash"
     elif [ -n "$CLAUDE_CODE" ]; then
       # Claude without tmux
-      exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd /workspace && ${CLAUDE_CODE}"
+      exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd '$WORKSPACE_PATH' && ${CLAUDE_CODE}"
     else
       # This shouldn't happen (NO_TMUX but no CLAUDE_CODE and not NO_CLAUDE)
-      exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd /workspace && exec bash"
+      exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd '$WORKSPACE_PATH' && exec bash"
     fi
   else
     # With tmux (default)
     if [ -n "$CLAUDE_CODE" ]; then
-      exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd /workspace && exec tmux new-session ${CLAUDE_CODE}"
+      exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd '$WORKSPACE_PATH' && exec tmux new-session ${CLAUDE_CODE}"
     else
-      exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd /workspace && exec tmux new-session"
+      exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd '$WORKSPACE_PATH' && exec tmux new-session"
     fi
   fi
 else
   # Command was provided, run it directly
-  exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd /workspace && $*"
+  exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd '$WORKSPACE_PATH' && $*"
 fi

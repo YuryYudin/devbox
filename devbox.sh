@@ -570,10 +570,12 @@ done
 
 # Get current directory for mounting
 CURRENT_DIR=$(pwd)
+# Resolve any symlinks to get the real path
+REAL_CURRENT_DIR=$(realpath "${CURRENT_DIR}")
 
 print_info "Starting container: ${CONTAINER_NAME}"
 echo "  - Image: ${IMAGE_NAME}"
-echo "  - Workspace: ${CURRENT_DIR}"
+echo "  - Workspace: ${REAL_CURRENT_DIR}"
 echo "  - User: ${USERNAME} (${USER_ID}:${GROUP_ID})"
 echo "  - Slot: $(generate_slot_name)"
 
@@ -589,11 +591,12 @@ DOCKER_CMD="docker run"
 DOCKER_CMD="${DOCKER_CMD} ${DOCKER_TTY_FLAGS}"
 DOCKER_CMD="${DOCKER_CMD} --name ${CONTAINER_NAME}"
 #DOCKER_CMD="${DOCKER_CMD} --user ${USER_ID}:${GROUP_ID}"
-DOCKER_CMD="${DOCKER_CMD} -v \"${CURRENT_DIR}:/workspace\""
+DOCKER_CMD="${DOCKER_CMD} -v \"${REAL_CURRENT_DIR}:${REAL_CURRENT_DIR}\""
 DOCKER_CMD="${DOCKER_CMD} -e USER=${USERNAME}"
 DOCKER_CMD="${DOCKER_CMD} -e USER_ID=${USER_ID}"
 DOCKER_CMD="${DOCKER_CMD} -e GROUP_ID=${GROUP_ID}"
 DOCKER_CMD="${DOCKER_CMD} -e HOME=/home/${USERNAME}"
+DOCKER_CMD="${DOCKER_CMD} -e WORKSPACE_PATH=${REAL_CURRENT_DIR}"
 DOCKER_CMD="${DOCKER_CMD} --cap-add SYS_ADMIN"
 DOCKER_CMD="${DOCKER_CMD} --cap-add NET_ADMIN"
 DOCKER_CMD="${DOCKER_CMD} --security-opt apparmor=unconfined"

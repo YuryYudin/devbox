@@ -254,7 +254,7 @@ your-api.example.com
 
 ### Working Directory
 
-Your current directory is mounted as `/workspace` inside the container. All file operations affect your actual files.
+Your current directory is mounted at the same absolute path inside the container. All file operations affect your actual files.
 
 ### Tmux Integration
 

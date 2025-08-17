@@ -132,7 +132,6 @@ RUN chown $USER_ID:$GROUP_ID /home/$USERNAME/init-firewall /home/$USERNAME/.devb
 USER $USERNAME
 RUN bash -c "source $NVM_DIR/nvm.sh && claude --version"
 
-WORKDIR /workspace
 USER root
 
 COPY --chown=$USERNAME docker-entrypoint.sh /usr/local/bin/docker-entrypoint
