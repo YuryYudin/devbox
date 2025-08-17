@@ -329,7 +329,7 @@ if [ $CHECK_RESULT -eq 1 ]; then
     print_warning "Docker image '${IMAGE_NAME}' not found."
     
     # Check if we can auto-build (build.sh exists in current devbox directory)
-    local AUTO_BUILD_DEVBOX_DIR="$(get_devbox_dir)"
+    AUTO_BUILD_DEVBOX_DIR="$(get_devbox_dir)"
     
     if [ -f "${AUTO_BUILD_DEVBOX_DIR}/build.sh" ]; then
         echo ""
@@ -355,7 +355,7 @@ elif [ $CHECK_RESULT -eq 2 ]; then
     echo -n "Do you want to rebuild the container now? (y/N): "
     read -r response
     if [[ "$response" =~ ^[Yy]$ ]]; then
-        local REBUILD_DEVBOX_DIR="$(get_devbox_dir)"
+        REBUILD_DEVBOX_DIR="$(get_devbox_dir)"
         print_info "Rebuilding container..."
         echo ""
         if "${REBUILD_DEVBOX_DIR}/build.sh"; then
