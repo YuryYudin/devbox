@@ -97,7 +97,7 @@ Or if you haven't created a symlink:
 | `--enable-sudo` | Enable sudo access inside the container | `devbox --enable-sudo` |
 | `--disable-firewall` | Disable the built-in firewall protection | `devbox --disable-firewall` |
 | `--dangerously-skip-permissions` | Skip Claude Code permission checks (use with caution) | `devbox --dangerously-skip-permissions` |
-| `--no-claude` | Start tmux session without Claude Code | `devbox --no-claude` |
+| `--no-claude` | Start tmux session without Claude Code (manual development mode) | `devbox --no-claude` |
 | (any command) | Run a specific command in the container | `devbox npm install` |
 
 **Examples:**
@@ -109,7 +109,7 @@ devbox update
 # Start interactive shell with sudo enabled
 devbox --enable-sudo
 
-# Start without Claude Code (just tmux)
+# Start without Claude Code (tmux only for manual development)
 devbox --no-claude
 
 # Run Claude with permission checks bypassed
@@ -235,6 +235,42 @@ your-api.example.com
 ### Working Directory
 
 Your current directory is mounted as `/workspace` inside the container. All file operations affect your actual files.
+
+### Tmux Integration
+
+DevBox automatically starts a tmux session when launched:
+- **Default mode**: Runs Claude Code CLI inside tmux for an integrated development experience
+- **Manual mode**: Use `--no-claude` to start tmux without Claude Code for general development
+
+#### Custom Tmux Configuration
+
+DevBox includes a pre-configured tmux setup with developer-friendly defaults:
+
+| Setting | Value | Description |
+|---------|-------|-------------|
+| **Prefix Key** | `Ctrl+k` | Changed from default `Ctrl+b` for easier access |
+| **Mouse Support** | Enabled | Click to select panes, scroll through history |
+| **History** | 10,000 lines | Extended scrollback buffer |
+| **Pane Splitting** | `\|` (vertical), `-` (horizontal) | Intuitive split commands |
+| **Window Navigation** | `Ctrl+k n` (next), `Ctrl+k c` (new) | Quick window management |
+| **Base Index** | 1 | Windows and panes start at 1 instead of 0 |
+
+#### Tmux Quick Reference
+
+```bash
+# Basic tmux commands (prefix = Ctrl+k)
+Ctrl+k |          # Split pane vertically
+Ctrl+k -          # Split pane horizontally  
+Ctrl+k n          # Next window
+Ctrl+k c          # New window
+Ctrl+k d          # Detach from session
+Ctrl+k [          # Enter copy mode (scroll through history)
+
+# Mouse support is enabled, so you can:
+# - Click to select panes
+# - Scroll to view history
+# - Resize panes by dragging borders
+```
 
 ### Configuration Persistence
 
