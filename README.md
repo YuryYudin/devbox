@@ -98,6 +98,7 @@ Or if you haven't created a symlink:
 | `--disable-firewall` | Disable the built-in firewall protection | `devbox --disable-firewall` |
 | `--dangerously-skip-permissions` | Skip Claude Code permission checks (use with caution) | `devbox --dangerously-skip-permissions` |
 | `--no-claude` | Start tmux session without Claude Code (manual development mode) | `devbox --no-claude` |
+| `--no-tmux` | Run without tmux (direct shell or Claude) | `devbox --no-tmux` |
 | (any command) | Run a specific command in the container | `devbox npm install` |
 
 **Examples:**
@@ -111,6 +112,12 @@ devbox --enable-sudo
 
 # Start without Claude Code (tmux only for manual development)
 devbox --no-claude
+
+# Start just a bash shell (no tmux, no Claude)
+devbox --no-tmux --no-claude
+
+# Run Claude without tmux (direct CLI mode)
+devbox --no-tmux
 
 # Run Claude with permission checks bypassed
 devbox --dangerously-skip-permissions
@@ -238,9 +245,11 @@ Your current directory is mounted as `/workspace` inside the container. All file
 
 ### Tmux Integration
 
-DevBox automatically starts a tmux session when launched:
+DevBox offers flexible session management with tmux:
 - **Default mode**: Runs Claude Code CLI inside tmux for an integrated development experience
 - **Manual mode**: Use `--no-claude` to start tmux without Claude Code for general development
+- **Direct mode**: Use `--no-tmux` to run without tmux (Claude runs directly in shell)
+- **Bare shell**: Use `--no-tmux --no-claude` for a plain bash session
 
 #### Custom Tmux Configuration
 
