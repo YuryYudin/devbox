@@ -101,6 +101,7 @@ Or if you haven't created a symlink:
 | `--no-claude` | Start tmux session without Claude Code (manual development mode) | `devbox --no-claude` |
 | `--no-tmux` | Run without tmux (direct shell or Claude) | `devbox --no-tmux` |
 | `--enable-docker` | Enable Docker-in-Docker support (mount Docker socket) | `devbox --enable-docker` |
+| `--clean-on-shutdown` | Remove container after use (default: preserve for reuse) | `devbox --clean-on-shutdown` |
 | (any command) | Run a specific command in the container | `devbox npm install` |
 
 **Examples:**
@@ -129,6 +130,9 @@ devbox --dangerously-skip-permissions
 
 # Enable Docker for build processes
 devbox --enable-docker
+
+# Remove container after use (one-time session)
+devbox --clean-on-shutdown
 
 # Execute a single command
 devbox python script.py
@@ -301,6 +305,15 @@ DevBox automatically saves your Claude Code authentication and configuration:
 - **Project settings** are saved per directory in `~/.devbox/slots/<project_name>/`
 - First-time users will need to authenticate with `/login` in Claude Code
 - Subsequent runs will restore your authentication automatically
+
+### Container Reuse
+
+DevBox reuses Docker containers to improve startup performance and reduce resource usage:
+- **Persistent containers**: Containers are preserved after use for faster restarts
+- **Per-project containers**: Each directory gets its own dedicated container
+- **Automatic rebuilds**: Containers are automatically recreated when DevBox is updated
+- **Manual cleanup**: Use `--clean-on-shutdown` to remove containers after use
+- **Smart reuse**: Running containers are reattached, stopped containers are restarted
 
 ### Docker-in-Docker Support
 

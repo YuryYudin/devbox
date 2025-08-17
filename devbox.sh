@@ -36,6 +36,7 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "help"
     echo "  --no-claude              Start tmux session without Claude Code (manual development)"
     echo "  --no-tmux                Run without tmux (direct shell or Claude)"
     echo "  --enable-docker          Enable Docker-in-Docker support (mount Docker socket)"
+    echo "  --clean-on-shutdown      Remove container after use (default: preserve for reuse)"
     echo ""
     echo -e "${GREEN}EXAMPLES:${NC}"
     echo "  devbox                              # Start Claude Code in tmux (default)"
@@ -46,6 +47,7 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "help"
     echo "  devbox --no-tmux                    # Run Claude directly (no tmux)"
     echo "  devbox --no-tmux --no-claude        # Plain bash shell"
     echo "  devbox --enable-docker              # Enable Docker commands"
+    echo "  devbox --clean-on-shutdown          # Remove container after use"
     echo "  devbox --enable-sudo --enable-docker --disable-firewall"
     echo "                                      # Full development mode"
     echo "  devbox npm install                  # Run specific command"
@@ -475,8 +477,31 @@ USER_ID=$(id -u)
 GROUP_ID=$(id -g)
 USERNAME=$(whoami)
 
-# Generate unique container name with timestamp
-CONTAINER_NAME="devbox-${USERNAME}-$(date +%Y%m%d-%H%M%S)"
+# Generate deterministic container name based on project directory
+SLOT_NAME=$(generate_slot_name)
+CONTAINER_NAME="devbox-${USERNAME}-${SLOT_NAME}"
+
+# Function to check if existing container needs rebuild
+needs_container_rebuild() {
+    local container_name="$1"
+    
+    # If container doesn't exist, no rebuild needed (will be created fresh)
+    if ! docker container inspect "${container_name}" &>/dev/null; then
+        return 1  # false - no rebuild needed, container doesn't exist
+    fi
+    
+    # Get container image ID
+    local container_image_id=$(docker container inspect --format='{{.Image}}' "${container_name}" 2>/dev/null)
+    # Get current image ID
+    local current_image_id=$(docker image inspect --format='{{.Id}}' "${IMAGE_NAME}" 2>/dev/null)
+    
+    # If image IDs don't match, container uses old image
+    if [ "$container_image_id" != "$current_image_id" ]; then
+        return 0  # true - rebuild needed
+    fi
+    
+    return 1  # false - no rebuild needed
+}
 
 # Setup Claude configuration before starting container
 setup_claude_config
@@ -549,6 +574,7 @@ DOCKER_ARGS=""
 ENTRYPOINT_ARGS=""
 INTERACTIVE=true
 ENABLE_DOCKER=false
+CLEAN_ON_SHUTDOWN=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -559,6 +585,10 @@ while [[ $# -gt 0 ]]; do
         --enable-docker)
             ENABLE_DOCKER=true
             ENTRYPOINT_ARGS="${ENTRYPOINT_ARGS} $1"
+            shift
+            ;;
+        --clean-on-shutdown)
+            CLEAN_ON_SHUTDOWN=true
             shift
             ;;
         *)
@@ -623,20 +653,76 @@ fi
 # Add the image and entrypoint arguments
 DOCKER_CMD="${DOCKER_CMD} ${IMAGE_NAME}${ENTRYPOINT_ARGS}"
 
-# Run the container
-print_info "Launching DevBox environment..."
-echo ""
+# Check if container already exists and can be reused
+EXISTING_CONTAINER=""
+CONTAINER_EXISTS=false
 
-# Execute the Docker command
-eval ${DOCKER_CMD}
-EXIT_CODE=$?
+if docker container inspect "${CONTAINER_NAME}" &>/dev/null; then
+    # Check if container needs rebuild due to image changes
+    if needs_container_rebuild "${CONTAINER_NAME}"; then
+        print_info "Container ${CONTAINER_NAME} uses outdated image"
+        print_info "Removing and recreating container with latest image..."
+        docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+        CONTAINER_EXISTS=false
+    else
+        CONTAINER_EXISTS=true
+        EXISTING_CONTAINER="${CONTAINER_NAME}"
+        
+        # Check if container is running
+        CONTAINER_STATUS=$(docker container inspect --format='{{.State.Status}}' "${CONTAINER_NAME}" 2>/dev/null)
+        
+        if [ "$CONTAINER_STATUS" = "running" ]; then
+            print_info "Container ${CONTAINER_NAME} is already running"
+            print_info "Attaching to existing container..."
+            
+            # Attach to running container
+            docker exec -it "${CONTAINER_NAME}" /usr/local/bin/docker-entrypoint${ENTRYPOINT_ARGS}
+            EXIT_CODE=$?
+        elif [ "$CONTAINER_STATUS" = "exited" ]; then
+            print_info "Reusing existing container: ${CONTAINER_NAME}"
+            print_info "Starting container..."
+            
+            # Start existing stopped container
+            docker start "${CONTAINER_NAME}" >/dev/null
+            docker exec -it "${CONTAINER_NAME}" /usr/local/bin/docker-entrypoint${ENTRYPOINT_ARGS}
+            EXIT_CODE=$?
+            
+            # Stop container after use (don't remove)
+            docker stop "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+        else
+            print_warning "Container ${CONTAINER_NAME} exists but in unexpected state: ${CONTAINER_STATUS}"
+            print_info "Removing and recreating container..."
+            docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+            CONTAINER_EXISTS=false
+        fi
+    fi
+fi
+
+# Create new container if none exists or if we removed the old one
+if [ "$CONTAINER_EXISTS" = false ]; then
+    print_info "Creating new container: ${CONTAINER_NAME}"
+    print_info "Launching DevBox environment..."
+    echo ""
+    
+    # Execute the Docker command
+    eval ${DOCKER_CMD}
+    EXIT_CODE=$?
+    
+    # Stop container after use (don't remove unless --clean-on-shutdown)
+    docker stop "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+fi
 
 # Save Claude configuration after container exits
 save_claude_config "${CONTAINER_NAME}"
 
-# Clean up container after saving config
-print_info "Cleaning up container..."
-docker rm "${CONTAINER_NAME}" &>/dev/null || true
+# Clean up container after saving config (only if requested)
+if [ "$CLEAN_ON_SHUTDOWN" = true ]; then
+    print_info "Cleaning up container (--clean-on-shutdown specified)..."
+    docker rm -f "${CONTAINER_NAME}" &>/dev/null || true
+else
+    print_info "Container ${CONTAINER_NAME} preserved for reuse"
+    print_info "Use --clean-on-shutdown to remove containers after use"
+fi
 
 # Container has exited
 if [ $EXIT_CODE -eq 0 ]; then
