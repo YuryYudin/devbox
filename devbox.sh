@@ -309,7 +309,7 @@ INTERACTIVE=true
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --enable-sudo|--disable-firewall|--claude-flow)
+        --enable-sudo|--disable-firewall|--dangerously-skip-permissions|--no-claude)
             ENTRYPOINT_ARGS="${ENTRYPOINT_ARGS} $1"
             shift
             ;;

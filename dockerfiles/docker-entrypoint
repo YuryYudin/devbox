@@ -10,12 +10,15 @@ export RUNUSER_PATH="/home/DOCKERUSER/.local/bin:$PATH"
 
 ENABLE_SUDO=false
 DISABLE_FIREWALL=false
+SKIP_PERMISSIONS=false
+NO_CLAUDE=false
 new_args=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --enable-sudo) ENABLE_SUDO=true; shift ;;
         --disable-firewall) DISABLE_FIREWALL=true; shift ;;
-	--claude-flow) ENABLE_CLAUDE_FLOW=true; shift ;;
+        --dangerously-skip-permissions) SKIP_PERMISSIONS=true; shift ;;
+        --no-claude) NO_CLAUDE=true; shift ;;
         *) new_args+=("$1"); shift ;;
     esac
 done
@@ -26,11 +29,13 @@ else
 fi
 export DISABLE_FIREWALL
 
-if [[ "${ENABLE_CLAUDE_FLOW:-false}" == "true" ]]; then
-  export ENABLE_CLAUDE_FLOW
-  CLAUDE_CODE="claude --dangerously-skip-permissions && claude-flow init"
+# Determine what command to run
+if [ "$NO_CLAUDE" = true ]; then
+    CLAUDE_CODE=""  # Just start tmux without claude
+elif [ "$SKIP_PERMISSIONS" = true ]; then
+    CLAUDE_CODE="claude --dangerously-skip-permissions"
 else
-  CLAUDE_CODE="claude"
+    CLAUDE_CODE="claude"
 fi
 
 # Restore Claude configuration if mounted
@@ -62,7 +67,11 @@ fi
 cd /home/DOCKERUSER
 
 if [[ $# -eq 0 ]]; then
-  exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd /workspace && exec tmux new-session ${CLAUDE_CODE}"
+  if [ -n "$CLAUDE_CODE" ]; then
+    exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd /workspace && exec tmux new-session ${CLAUDE_CODE}"
+  else
+    exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd /workspace && exec tmux new-session"
+  fi
 else
   exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd /workspace && $*"
 fi

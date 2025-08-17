@@ -9,7 +9,7 @@ DevBox is a secure, isolated Docker container environment for running Claude Cod
 - 🔧 **Pre-configured Environment**: Includes common development tools and languages
 - 📦 **Language Support**: Node.js, Python, Java (JDK 17 & 21), Ruby, and more
 - 🔄 **Auto-updates**: Checks for updates from GitHub repository
-- 🎯 **Claude Flow Support**: Integrated support for Claude's workflow mode
+- 🎯 **Flexible Execution**: Run with or without Claude Code, with optional permission bypassing
 - 💾 **Persistent Authentication**: Saves Claude Code login across sessions
 - 📁 **Per-Directory Configs**: Different Claude settings for different projects
 - 🖥️ **Cross-platform**: Works on macOS, Linux, and Windows (with WSL2)
@@ -83,7 +83,8 @@ Or if you haven't created a symlink:
 |----------|-------------|---------|
 | `--enable-sudo` | Enable sudo access inside the container | `devbox --enable-sudo` |
 | `--disable-firewall` | Disable the built-in firewall protection | `devbox --disable-firewall` |
-| `--claude-flow` | Launch with Claude Flow workflow mode | `devbox --claude-flow` |
+| `--dangerously-skip-permissions` | Skip Claude Code permission checks (use with caution) | `devbox --dangerously-skip-permissions` |
+| `--no-claude` | Start tmux session without Claude Code | `devbox --no-claude` |
 | (any command) | Run a specific command in the container | `devbox npm install` |
 
 **Examples:**
@@ -92,8 +93,11 @@ Or if you haven't created a symlink:
 # Start interactive shell with sudo enabled
 devbox --enable-sudo
 
-# Run Claude Code with workflow mode
-devbox --claude-flow
+# Start without Claude Code (just tmux)
+devbox --no-claude
+
+# Run Claude with permission checks bypassed
+devbox --dangerously-skip-permissions
 
 # Execute a single command
 devbox python script.py
@@ -202,7 +206,6 @@ your-api.example.com
 
 **Claude Tools:**
 - Claude Code CLI (`claude`)
-- Claude Flow (`claude-flow`)
 
 ### Working Directory
 
