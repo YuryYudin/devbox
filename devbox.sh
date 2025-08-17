@@ -106,6 +106,100 @@ check_container_version() {
     return 0  # Image exists and is up to date
 }
 
+# Function to generate slot name from current directory
+generate_slot_name() {
+    local current_dir=$(pwd)
+    # Replace special characters with underscores
+    echo "${current_dir}" | sed 's/[^a-zA-Z0-9]/_/g' | sed 's/__*/_/g' | sed 's/^_//;s/_$//'
+}
+
+# Function to setup Claude configuration
+setup_claude_config() {
+    local DEVBOX_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    local SLOT_NAME=$(generate_slot_name)
+    local SLOTS_DIR="${DEVBOX_DIR}/slots"
+    local SLOT_DIR="${SLOTS_DIR}/${SLOT_NAME}"
+    local CLAUDE_CONFIGS_DIR="${DEVBOX_DIR}/claude-configs"
+    local TEMP_CONFIG_DIR="/tmp/devbox-claude-${CONTAINER_NAME}"
+    
+    # Create directories if they don't exist
+    mkdir -p "${SLOTS_DIR}"
+    mkdir -p "${CLAUDE_CONFIGS_DIR}"
+    mkdir -p "${TEMP_CONFIG_DIR}"
+    
+    # Prepare configuration to copy into container
+    local CONFIG_RESTORED=false
+    
+    # Check if we have a saved .claude folder
+    if [ -d "${CLAUDE_CONFIGS_DIR}/.claude" ]; then
+        cp -r "${CLAUDE_CONFIGS_DIR}/.claude" "${TEMP_CONFIG_DIR}/"
+        CONFIG_RESTORED=true
+        print_info "Restored Claude authentication from previous session"
+    fi
+    
+    # Check if we have a slot-specific .claude.json
+    if [ -f "${SLOT_DIR}/.claude.json" ]; then
+        cp "${SLOT_DIR}/.claude.json" "${TEMP_CONFIG_DIR}/"
+        CONFIG_RESTORED=true
+        print_info "Restored project-specific Claude configuration for: $(pwd)"
+    fi
+    
+    if [ "$CONFIG_RESTORED" = false ]; then
+        print_info "First time using DevBox in this directory: $(pwd)"
+        print_info "You may need to authenticate with Claude Code using /login"
+    fi
+    
+    echo "${SLOT_NAME}" > "${TEMP_CONFIG_DIR}/.slot_name"
+    echo "${SLOT_DIR}" > "${TEMP_CONFIG_DIR}/.slot_dir"
+    echo "${CLAUDE_CONFIGS_DIR}" > "${TEMP_CONFIG_DIR}/.claude_configs_dir"
+}
+
+# Function to save Claude configuration after container exits
+save_claude_config() {
+    local CONTAINER_NAME="$1"
+    local TEMP_CONFIG_DIR="/tmp/devbox-claude-${CONTAINER_NAME}"
+    
+    if [ ! -f "${TEMP_CONFIG_DIR}/.slot_name" ]; then
+        return
+    fi
+    
+    local SLOT_NAME=$(cat "${TEMP_CONFIG_DIR}/.slot_name")
+    local SLOT_DIR=$(cat "${TEMP_CONFIG_DIR}/.slot_dir")
+    local CLAUDE_CONFIGS_DIR=$(cat "${TEMP_CONFIG_DIR}/.claude_configs_dir")
+    
+    # Create directories if needed
+    mkdir -p "${SLOT_DIR}"
+    mkdir -p "${CLAUDE_CONFIGS_DIR}"
+    
+    # Copy configuration from container
+    local CONFIG_SAVED=false
+    
+    # Save .claude folder (authentication tokens)
+    if docker cp "${CONTAINER_NAME}:/home/${USERNAME}/.claude" "${TEMP_CONFIG_DIR}/.claude-new" 2>/dev/null; then
+        if [ -d "${TEMP_CONFIG_DIR}/.claude-new" ]; then
+            rm -rf "${CLAUDE_CONFIGS_DIR}/.claude"
+            mv "${TEMP_CONFIG_DIR}/.claude-new" "${CLAUDE_CONFIGS_DIR}/.claude"
+            CONFIG_SAVED=true
+        fi
+    fi
+    
+    # Save .claude.json (project configuration)
+    if docker cp "${CONTAINER_NAME}:/home/${USERNAME}/.claude.json" "${TEMP_CONFIG_DIR}/.claude.json-new" 2>/dev/null; then
+        if [ -f "${TEMP_CONFIG_DIR}/.claude.json-new" ]; then
+            mkdir -p "${SLOT_DIR}"
+            mv "${TEMP_CONFIG_DIR}/.claude.json-new" "${SLOT_DIR}/.claude.json"
+            CONFIG_SAVED=true
+        fi
+    fi
+    
+    # Clean up temp directory
+    rm -rf "${TEMP_CONFIG_DIR}"
+    
+    if [ "$CONFIG_SAVED" = true ]; then
+        print_info "Claude configuration saved for future use"
+    fi
+}
+
 # Check for updates from GitHub (only if in git repo)
 DEVBOX_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 if [ -d "${DEVBOX_DIR}/.git" ]; then
@@ -205,6 +299,9 @@ USERNAME=$(whoami)
 # Generate unique container name with timestamp
 CONTAINER_NAME="devbox-${USERNAME}-$(date +%Y%m%d-%H%M%S)"
 
+# Setup Claude configuration before starting container
+setup_claude_config
+
 # Parse command line arguments
 DOCKER_ARGS=""
 ENTRYPOINT_ARGS=""
@@ -230,6 +327,7 @@ print_info "Starting container: ${CONTAINER_NAME}"
 echo "  - Image: ${IMAGE_NAME}"
 echo "  - Workspace: ${CURRENT_DIR}"
 echo "  - User: ${USERNAME} (${USER_ID}:${GROUP_ID})"
+echo "  - Slot: $(generate_slot_name)"
 
 # Determine if we should run interactively
 if [ -t 0 ] && [ -t 1 ]; then
@@ -251,6 +349,10 @@ DOCKER_CMD="${DOCKER_CMD} --cap-add SYS_ADMIN"
 DOCKER_CMD="${DOCKER_CMD} --cap-add NET_ADMIN"
 DOCKER_CMD="${DOCKER_CMD} --security-opt apparmor=unconfined"
 
+# Mount the temp config directory
+TEMP_CONFIG_DIR="/tmp/devbox-claude-${CONTAINER_NAME}"
+DOCKER_CMD="${DOCKER_CMD} -v \"${TEMP_CONFIG_DIR}:/tmp/claude-config\""
+
 # Add environment variables for terminal
 if [ -n "${TERM:-}" ]; then
     DOCKER_CMD="${DOCKER_CMD} -e TERM=${TERM}"
@@ -266,6 +368,9 @@ echo ""
 # Execute the Docker command
 eval ${DOCKER_CMD}
 EXIT_CODE=$?
+
+# Save Claude configuration after container exits
+save_claude_config "${CONTAINER_NAME}"
 
 # Container has exited
 if [ $EXIT_CODE -eq 0 ]; then

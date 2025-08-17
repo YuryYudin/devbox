@@ -33,6 +33,21 @@ else
   CLAUDE_CODE="claude"
 fi
 
+# Restore Claude configuration if mounted
+if [ -d "/tmp/claude-config" ]; then
+    # Copy .claude folder if it exists
+    if [ -d "/tmp/claude-config/.claude" ]; then
+        cp -r "/tmp/claude-config/.claude" "/home/DOCKERUSER/"
+        chown -R DOCKERUSER:DOCKERUSER "/home/DOCKERUSER/.claude"
+    fi
+    
+    # Copy .claude.json if it exists
+    if [ -f "/tmp/claude-config/.claude.json" ]; then
+        cp "/tmp/claude-config/.claude.json" "/home/DOCKERUSER/"
+        chown DOCKERUSER:DOCKERUSER "/home/DOCKERUSER/.claude.json"
+    fi
+fi
+
 if [ -f /home/DOCKERUSER/init-firewall ]; then
     sudo /home/DOCKERUSER/init-firewall || true
 fi
@@ -47,20 +62,7 @@ fi
 cd /home/DOCKERUSER
 
 if [[ $# -eq 0 ]]; then
-  exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd /workspace && exec tmux new-session claude"
+  exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd /workspace && exec tmux new-session ${CLAUDE_CODE}"
 else
-  exec runuser -u DOCKERUSER -- bash 
+  exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd /workspace && $*"
 fi
-
-cd /workspace
-
-# Set DEVBOX_SLOT_NAME based on workspace directory name
-DEVBOX_SLOT_NAME=$(basename "$(pwd)")
-export DEVBOX_SLOT_NAME
-
-# After claude exits, copy .claude.json if it was created
-mkdir -p $HOME/.devbox/${CLAUDEBOX_SLOT_NAME}
-if [[ -f "$HOME/.claude.json" ]] && [[ ! -f "$HOME/.devbox/${CLAUDEBOX_SLOT_NAME}/.claude.json" ]]; then
-   cp "$HOME/.claude.json" "$HOME/.devbox/${CLAUDEBOX_SLOT_NAME}/.claude.json"
-fi
-

@@ -10,6 +10,8 @@ DevBox is a secure, isolated Docker container environment for running Claude Cod
 - 📦 **Language Support**: Node.js, Python, Java (JDK 17 & 21), Ruby, and more
 - 🔄 **Auto-updates**: Checks for updates from GitHub repository
 - 🎯 **Claude Flow Support**: Integrated support for Claude's workflow mode
+- 💾 **Persistent Authentication**: Saves Claude Code login across sessions
+- 📁 **Per-Directory Configs**: Different Claude settings for different projects
 - 🖥️ **Cross-platform**: Works on macOS, Linux, and Windows (with WSL2)
 
 ## Prerequisites
@@ -118,6 +120,11 @@ cd ~/.devbox && git pull && ./build.sh
 │   ├── init-firewall    # Firewall initialization
 │   ├── allowlist        # Network allowlist
 │   └── dockerignore     # Docker build exclusions
+├── claude-configs/      # Shared Claude authentication
+│   └── .claude/         # Authentication tokens
+├── slots/               # Per-directory configurations
+│   └── <project_name>/  # Project-specific settings
+│       └── .claude.json # Claude configuration
 └── .git/                # Git repository
 ```
 
@@ -191,6 +198,14 @@ your-api.example.com
 ### Working Directory
 
 Your current directory is mounted as `/workspace` inside the container. All file operations affect your actual files.
+
+### Configuration Persistence
+
+DevBox automatically saves your Claude Code authentication and configuration:
+- **Authentication tokens** are saved in `~/.devbox/claude-configs/.claude/`
+- **Project settings** are saved per directory in `~/.devbox/slots/<project_name>/`
+- First-time users will need to authenticate with `/login` in Claude Code
+- Subsequent runs will restore your authentication automatically
 
 ## Troubleshooting
 
