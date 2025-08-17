@@ -26,6 +26,8 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "help"
     echo ""
     echo -e "${GREEN}COMMANDS:${NC}"
     echo "  update                    Update DevBox and rebuild container with latest packages"
+    echo "  --list-containers         List all DevBox containers and their status"
+    echo "  --clean-all               Remove all DevBox containers (with confirmation)"
     echo "  --help, -h               Show this help message"
     echo ""
     echo -e "${GREEN}OPTIONS:${NC}"
@@ -42,6 +44,8 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "help"
     echo "  devbox                              # Start Claude Code in tmux (default)"
     echo "  devbox --help                       # Show this help"
     echo "  devbox update                       # Update DevBox to latest version"
+    echo "  devbox --list-containers            # List all containers"
+    echo "  devbox --clean-all                  # Remove all containers"
     echo "  devbox --enable-sudo                # Start with sudo access"
     echo "  devbox --no-claude                  # Start tmux without Claude (manual dev)"
     echo "  devbox --no-tmux                    # Run Claude directly (no tmux)"
@@ -93,6 +97,97 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Get current user information for container commands
+USERNAME=$(whoami)
+
+# Check for list-containers command
+if [[ "${1:-}" == "--list-containers" ]]; then
+    echo -e "${GREEN}[INFO]${NC} Listing all DevBox containers..."
+    echo ""
+    
+    # Get all DevBox containers
+    DEVBOX_CONTAINERS=$(docker ps -a --filter "name=devbox-${USERNAME}-" --format "table {{.Names}}\t{{.Status}}\t{{.Size}}\t{{.CreatedAt}}" 2>/dev/null)
+    
+    if [ -z "$DEVBOX_CONTAINERS" ] || [ "$DEVBOX_CONTAINERS" = "NAMES	STATUS	SIZE	CREATEDAT" ]; then
+        echo -e "${GREEN}[INFO]${NC} No DevBox containers found."
+        echo ""
+        echo "Containers are automatically created when you run devbox in a directory."
+        echo "Each directory gets its own dedicated container for isolation."
+    else
+        echo "$DEVBOX_CONTAINERS"
+        echo ""
+        
+        # Count containers
+        CONTAINER_COUNT=$(echo "$DEVBOX_CONTAINERS" | tail -n +2 | wc -l | tr -d ' ')
+        echo -e "${GREEN}[INFO]${NC} Found $CONTAINER_COUNT DevBox container(s)"
+        echo ""
+        echo "To remove a specific container: docker rm <container-name>"
+        echo "To remove all containers: devbox --clean-all"
+        echo "To remove containers after use: devbox --clean-on-shutdown"
+    fi
+    
+    exit 0
+fi
+
+# Check for clean-all command
+if [[ "${1:-}" == "--clean-all" ]]; then
+    echo -e "${GREEN}[INFO]${NC} DevBox Container Cleanup"
+    echo ""
+    
+    # Get all DevBox containers
+    DEVBOX_CONTAINERS=$(docker ps -a --filter "name=devbox-${USERNAME}-" --format "{{.Names}}" 2>/dev/null)
+    
+    if [ -z "$DEVBOX_CONTAINERS" ]; then
+        echo -e "${GREEN}[INFO]${NC} No DevBox containers found to clean up."
+        exit 0
+    fi
+    
+    # Count containers
+    CONTAINER_COUNT=$(echo "$DEVBOX_CONTAINERS" | wc -l | tr -d ' ')
+    
+    echo -e "${YELLOW}[WARNING]${NC} Found $CONTAINER_COUNT DevBox container(s) to remove:"
+    echo ""
+    
+    # Show detailed container info
+    docker ps -a --filter "name=devbox-${USERNAME}-" --format "table {{.Names}}\t{{.Status}}\t{{.Size}}"
+    echo ""
+    
+    echo -e "${YELLOW}[WARNING]${NC} This will permanently delete all your DevBox containers and their data."
+    echo -e "${YELLOW}[WARNING]${NC} Your source code and Claude authentication will NOT be affected."
+    echo ""
+    echo -n "Are you sure you want to remove ALL DevBox containers? (y/N): "
+    
+    # Handle input for both interactive and non-interactive environments
+    if [ -t 0 ]; then
+        # Interactive mode - read from stdin
+        read -r response
+    else
+        # Non-interactive mode - try to read from stdin
+        read -r response
+    fi
+    
+    if [[ "$response" =~ ^[Yy]$ ]]; then
+        echo -e "${GREEN}[INFO]${NC} Removing all DevBox containers..."
+        
+        # Remove containers one by one for better error handling
+        echo "$DEVBOX_CONTAINERS" | while IFS= read -r container; do
+            if [ -n "$container" ]; then
+                echo "  Removing: $container"
+                docker rm -f "$container" >/dev/null 2>&1 || echo -e "${YELLOW}[WARNING]${NC} Failed to remove: $container"
+            fi
+        done
+        
+        echo ""
+        echo -e "${GREEN}[INFO]${NC} ✅ Container cleanup completed!"
+        echo ""
+        echo "Next time you run devbox, new containers will be created automatically."
+    else
+        echo -e "${GREEN}[INFO]${NC} Container cleanup cancelled."
+    fi
+    
+    exit 0
+fi
 
 # Function to print colored messages
 print_info() {
@@ -568,6 +663,7 @@ if [[ "${1:-}" == "update" ]]; then
     
     exit 0
 fi
+
 
 # Parse command line arguments
 DOCKER_ARGS=""

@@ -95,6 +95,8 @@ Or if you haven't created a symlink:
 |-----------------|-------------|---------|
 | `--help`, `-h`, `help` | Show detailed usage information and all available options | `devbox --help` |
 | `update` | Update DevBox and rebuild container with latest packages | `devbox update` |
+| `--list-containers` | List all DevBox containers and their status | `devbox --list-containers` |
+| `--clean-all` | Remove all DevBox containers (with confirmation) | `devbox --clean-all` |
 | `--enable-sudo` | Enable sudo access inside the container | `devbox --enable-sudo` |
 | `--disable-firewall` | Disable the built-in firewall protection | `devbox --disable-firewall` |
 | `--dangerously-skip-permissions` | Skip Claude Code permission checks (use with caution) | `devbox --dangerously-skip-permissions` |
@@ -112,6 +114,12 @@ devbox --help
 
 # Update DevBox and all packages to latest versions
 devbox update
+
+# List all containers and their status
+devbox --list-containers
+
+# Remove all containers (with confirmation)
+devbox --clean-all
 
 # Start interactive shell with sudo enabled
 devbox --enable-sudo
@@ -314,6 +322,26 @@ DevBox reuses Docker containers to improve startup performance and reduce resour
 - **Automatic rebuilds**: Containers are automatically recreated when DevBox is updated
 - **Manual cleanup**: Use `--clean-on-shutdown` to remove containers after use
 - **Smart reuse**: Running containers are reattached, stopped containers are restarted
+
+### Container Management
+
+DevBox provides several commands for managing your containers:
+
+```bash
+# List all DevBox containers
+devbox --list-containers
+
+# Remove all DevBox containers (with confirmation)
+devbox --clean-all
+
+# Remove containers after each use
+devbox --clean-on-shutdown
+
+# Remove a specific container manually
+docker rm devbox-<username>-<project>
+```
+
+**Container Naming**: Containers are named using the pattern `devbox-<username>-<project>` where `<project>` is derived from your current directory path.
 
 ### Docker-in-Docker Support
 
