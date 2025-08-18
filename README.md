@@ -97,6 +97,7 @@ Or if you haven't created a symlink:
 | `update` | Update DevBox and rebuild container with latest packages | `devbox update` |
 | `--list-containers` | List all DevBox containers and their status | `devbox --list-containers` |
 | `--clean-all` | Remove all DevBox containers (with confirmation) | `devbox --clean-all` |
+| `--rebuild-containers` | Rebuild all containers (removes and recreates) | `devbox --rebuild-containers` |
 | `--enable-sudo` | Enable sudo access inside the container | `devbox --enable-sudo` |
 | `--disable-firewall` | Disable the built-in firewall protection | `devbox --disable-firewall` |
 | `--dangerously-skip-permissions` | Skip Claude Code permission checks (use with caution) | `devbox --dangerously-skip-permissions` |
@@ -104,6 +105,7 @@ Or if you haven't created a symlink:
 | `--no-tmux` | Run without tmux (direct shell or Claude) | `devbox --no-tmux` |
 | `--enable-docker` | Enable Docker-in-Docker support (mount Docker socket) | `devbox --enable-docker` |
 | `--clean-on-shutdown` | Remove container after use (default: preserve for reuse) | `devbox --clean-on-shutdown` |
+| `--preserve-homedir` | Preserve home directory when rebuilding containers | `devbox --rebuild-containers --preserve-homedir` |
 | (any command) | Run a specific command in the container | `devbox npm install` |
 
 **Examples:**
@@ -120,6 +122,12 @@ devbox --list-containers
 
 # Remove all containers (with confirmation)
 devbox --clean-all
+
+# Rebuild all containers (loses installed packages)
+devbox --rebuild-containers
+
+# Rebuild containers but preserve home directories
+devbox --rebuild-containers --preserve-homedir
 
 # Start interactive shell with sudo enabled
 devbox --enable-sudo
@@ -342,6 +350,31 @@ docker rm devbox-<username>-<project>
 ```
 
 **Container Naming**: Containers are named using the pattern `devbox-<username>-<project>` where `<project>` is derived from your current directory path.
+
+### Container Rebuilding
+
+When DevBox or its base image is updated, you may need to rebuild your containers:
+
+```bash
+# Rebuild all containers (loses development environment)
+devbox --rebuild-containers
+
+# Rebuild containers but preserve home directories
+devbox --rebuild-containers --preserve-homedir
+```
+
+**What gets preserved with `--preserve-homedir`:**
+- Installed packages (npm, pip, gems, etc.)
+- Shell history and configurations
+- User-created files in home directory
+- Custom development environment setup
+
+**What always survives rebuilds:**
+- Your source code (mounted from host)
+- Claude authentication tokens
+- Project-specific configurations
+
+**Automatic restoration**: When using `--preserve-homedir`, the home directories are automatically restored when you next run devbox in each project directory.
 
 ### Docker-in-Docker Support
 
