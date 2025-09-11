@@ -11,6 +11,7 @@ RUN ln -sf /usr/share/zoneinfo/Europe/London /etc/localtime
 RUN apt-get update && apt-get -y install \
     openjdk-21-jdk \
     openjdk-17-jdk \
+    scala \
     net-tools \
     iputils-ping \
     dnsutils \
