@@ -44,13 +44,15 @@ RUN apt-get update && apt-get -y install \
     python3 \
     lsb-release \
     libgtest-dev \
-    libgmock-dev \ 
+    libgmock-dev \
     libmsgpack-dev \
     googletest \
     gradle \
     maven \
     ca-certificates \
-    gnupg
+    gnupg \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 # Install Docker CLI
 RUN install -m 0755 -d /etc/apt/keyrings && \
@@ -58,7 +60,9 @@ RUN install -m 0755 -d /etc/apt/keyrings && \
     chmod a+r /etc/apt/keyrings/docker.gpg && \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null && \
     apt-get update && \
-    apt-get -y install docker-ce-cli docker-buildx-plugin docker-compose-plugin
+    apt-get -y install docker-ce-cli docker-buildx-plugin docker-compose-plugin \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 # Create same user and group as a local user
 RUN groupadd -g $GROUP_ID $USERNAME || true && \

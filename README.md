@@ -106,6 +106,7 @@ Or if you haven't created a symlink:
 | `--enable-docker` | Enable Docker-in-Docker support (mount Docker socket) | `devbox --enable-docker` |
 | `--clean-on-shutdown` | Remove container after use (default: preserve for reuse) | `devbox --clean-on-shutdown` |
 | `--preserve-homedir` | Preserve home directory when rebuilding containers | `devbox --rebuild-containers --preserve-homedir` |
+| `--mount PATH` | Mount additional path(s) at their original locations (can be used multiple times) | `devbox --mount /data/shared` |
 | (any command) | Run a specific command in the container | `devbox npm install` |
 
 **Examples:**
@@ -155,6 +156,13 @@ devbox python script.py
 
 # Combine options for development with Docker
 devbox --enable-sudo --enable-docker --disable-firewall
+
+# Mount additional directories
+devbox --mount /data/shared
+devbox --mount /src --mount /config --mount /var/logs
+
+# Combine mounting with other options
+devbox --mount /data --enable-docker --disable-firewall
 
 # Run npm commands
 devbox npm install
@@ -275,6 +283,27 @@ your-api.example.com
 ### Working Directory
 
 Your current directory is mounted at the same absolute path inside the container. All file operations affect your actual files.
+
+### Additional Volume Mounts
+
+DevBox allows mounting additional directories from your host system into the container at their original locations using the `--mount` parameter:
+
+- **Single mount**: `devbox --mount /path/to/data`
+- **Multiple mounts**: `devbox --mount /src --mount /config --mount /logs`
+- **With other options**: `devbox --mount /data --enable-docker`
+
+**Features:**
+- Paths are resolved to absolute paths automatically
+- Directories are mounted at their original locations (e.g., `/data` on host → `/data` in container)
+- Non-existent paths generate warnings but don't prevent container startup
+- Multiple `--mount` parameters can be specified for multiple directories
+- Works seamlessly with all other DevBox options
+
+**Use Cases:**
+- Accessing shared data directories
+- Mounting configuration folders
+- Providing access to log directories
+- Sharing resources between multiple projects
 
 ### Tmux Integration
 
