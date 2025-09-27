@@ -891,6 +891,10 @@ DOCKER_CMD="${DOCKER_CMD} ${DOCKER_TTY_FLAGS}"
 DOCKER_CMD="${DOCKER_CMD} --name ${CONTAINER_NAME}"
 #DOCKER_CMD="${DOCKER_CMD} --user ${USER_ID}:${GROUP_ID}"
 DOCKER_CMD="${DOCKER_CMD} -v \"${REAL_CURRENT_DIR}:${REAL_CURRENT_DIR}\""
+# Mount additional paths if specified
+for mount_path in "${ADDITIONAL_MOUNTS[@]}"; do
+    DOCKER_CMD="${DOCKER_CMD} -v \"${mount_path}:${mount_path}\""
+done
 DOCKER_CMD="${DOCKER_CMD} -e USER=${USERNAME}"
 DOCKER_CMD="${DOCKER_CMD} -e USER_ID=${USER_ID}"
 DOCKER_CMD="${DOCKER_CMD} -e GROUP_ID=${GROUP_ID}"
@@ -903,11 +907,6 @@ DOCKER_CMD="${DOCKER_CMD} --security-opt apparmor=unconfined"
 # Mount the temp config directory
 TEMP_CONFIG_DIR="/tmp/devbox-claude-${CONTAINER_NAME}"
 DOCKER_CMD="${DOCKER_CMD} -v \"${TEMP_CONFIG_DIR}:/tmp/claude-config\""
-
-# Mount additional paths if specified
-for mount_path in "${ADDITIONAL_MOUNTS[@]}"; do
-    DOCKER_CMD="${DOCKER_CMD} -v \"${mount_path}:${mount_path}\""
-done
 
 # Mount Docker socket if Docker is enabled
 if [ "$ENABLE_DOCKER" = true ]; then
