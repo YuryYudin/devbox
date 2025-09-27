@@ -41,6 +41,8 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "help"
     echo "  --enable-docker          Enable Docker-in-Docker support (mount Docker socket)"
     echo "  --clean-on-shutdown      Remove container after use (default: preserve for reuse)"
     echo "  --preserve-homedir       Preserve home directory when rebuilding containers"
+    echo "  --mount PATH             Mount additional path(s) at their original locations"
+    echo "                           Can be specified multiple times for multiple mounts"
     echo ""
     echo -e "${GREEN}EXAMPLES:${NC}"
     echo "  devbox                              # Start Claude Code in tmux (default)"
@@ -58,6 +60,8 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "help"
     echo "  devbox --clean-on-shutdown          # Remove container after use"
     echo "  devbox --enable-sudo --enable-docker --disable-firewall"
     echo "                                      # Full development mode"
+    echo "  devbox --mount /path/to/data        # Mount additional directory"
+    echo "  devbox --mount /src --mount /config # Mount multiple directories"
     echo "  devbox npm install                  # Run specific command"
     echo "  devbox python script.py            # Execute script"
     echo ""
@@ -819,6 +823,7 @@ ENTRYPOINT_ARGS=""
 INTERACTIVE=true
 ENABLE_DOCKER=false
 CLEAN_ON_SHUTDOWN=false
+ADDITIONAL_MOUNTS=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -834,6 +839,20 @@ while [[ $# -gt 0 ]]; do
         --clean-on-shutdown)
             CLEAN_ON_SHUTDOWN=true
             shift
+            ;;
+        --mount)
+            if [[ -z "${2:-}" ]]; then
+                print_error "Error: --mount requires a path argument"
+                exit 1
+            fi
+            # Resolve the path to absolute path
+            MOUNT_PATH=$(realpath "$2" 2>/dev/null || echo "$2")
+            if [[ ! -e "$MOUNT_PATH" ]]; then
+                print_warning "Warning: Mount path does not exist: $2"
+                echo "         Container will start but path may not be accessible"
+            fi
+            ADDITIONAL_MOUNTS+=("$MOUNT_PATH")
+            shift 2
             ;;
         *)
             ENTRYPOINT_ARGS="${ENTRYPOINT_ARGS} $1"
@@ -852,6 +871,12 @@ echo "  - Image: ${IMAGE_NAME}"
 echo "  - Workspace: ${REAL_CURRENT_DIR}"
 echo "  - User: ${USERNAME} (${USER_ID}:${GROUP_ID})"
 echo "  - Slot: $(generate_slot_name)"
+if [[ ${#ADDITIONAL_MOUNTS[@]} -gt 0 ]]; then
+    echo "  - Additional mounts:"
+    for mount in "${ADDITIONAL_MOUNTS[@]}"; do
+        echo "    • ${mount}"
+    done
+fi
 
 # Determine if we should run interactively
 if [ -t 0 ] && [ -t 1 ]; then
@@ -878,6 +903,11 @@ DOCKER_CMD="${DOCKER_CMD} --security-opt apparmor=unconfined"
 # Mount the temp config directory
 TEMP_CONFIG_DIR="/tmp/devbox-claude-${CONTAINER_NAME}"
 DOCKER_CMD="${DOCKER_CMD} -v \"${TEMP_CONFIG_DIR}:/tmp/claude-config\""
+
+# Mount additional paths if specified
+for mount_path in "${ADDITIONAL_MOUNTS[@]}"; do
+    DOCKER_CMD="${DOCKER_CMD} -v \"${mount_path}:${mount_path}\""
+done
 
 # Mount Docker socket if Docker is enabled
 if [ "$ENABLE_DOCKER" = true ]; then
