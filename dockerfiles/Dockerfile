@@ -7,50 +7,72 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Set timezone to BST
 RUN ln -sf /usr/share/zoneinfo/Europe/London /etc/localtime
 
-# Add repos and update/install packages
-RUN apt-get update && apt-get -y install \
+# Install essential packages first (minimal for space)
+RUN apt-get update --allow-insecure-repositories && \
+    apt-get install -y --allow-unauthenticated --no-install-recommends \
+        ca-certificates \
+        gnupg \
+        curl \
+        wget \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+# Install core development packages in batches to manage space
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    build-essential \
+    gcc \
+    cmake \
+    make \
+    vim \
+    sudo \
+    tmux \
+    screen \
+    bash-completion \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+# Install Java and development tools (keep recommends for JDK)
+RUN apt-get update && apt-get install -y \
     openjdk-21-jdk \
     openjdk-17-jdk \
+    && apt-get install -y --no-install-recommends \
     scala \
+    gradle \
+    maven \
+    python3 \
+    ruby \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+# Install network and system tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
     net-tools \
     iputils-ping \
     dnsutils \
     tcpdump \
     netcat-openbsd \
-    init \
     telnet \
-    bash-completion \
-    screen \
-    tmux \
-    git \
+    init \
     iptables \
     ipset \
-    sudo \
     rsync \
     htop \
-    wget \
     unzip \
     tar \
-    gcc \
-    cmake \
-    vim \
     patch \
-    build-essential \
-    git \
-    curl \
     rpm \
-    ruby \
     zip \
-    python3 \
     lsb-release \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+# Install development libraries
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libgtest-dev \
     libgmock-dev \
     libmsgpack-dev \
     googletest \
-    gradle \
-    maven \
-    ca-certificates \
-    gnupg \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 

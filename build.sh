@@ -92,8 +92,13 @@ print_info "Building Docker image: ${FULL_IMAGE_NAME}"
 # Copy docker-entrypoint.sh to the expected name for the Dockerfile
 cp "${DOCKERFILE_DIR}/docker-entrypoint" "${DOCKERFILE_DIR}/docker-entrypoint.sh"
 
-# Build the Docker image
+# Clean up Docker system to free space
+print_info "Cleaning up Docker system to free space..."
+docker system prune -f
+
+# Build the Docker image with no cache to reduce space usage
 docker build \
+    --no-cache \
     --build-arg USER_ID="${USER_ID}" \
     --build-arg GROUP_ID="${GROUP_ID}" \
     --build-arg USERNAME="${USERNAME}" \
