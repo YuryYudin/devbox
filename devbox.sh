@@ -892,9 +892,11 @@ DOCKER_CMD="${DOCKER_CMD} --name ${CONTAINER_NAME}"
 #DOCKER_CMD="${DOCKER_CMD} --user ${USER_ID}:${GROUP_ID}"
 DOCKER_CMD="${DOCKER_CMD} -v \"${REAL_CURRENT_DIR}:${REAL_CURRENT_DIR}\""
 # Mount additional paths if specified
-for mount_path in "${ADDITIONAL_MOUNTS[@]}"; do
-    DOCKER_CMD="${DOCKER_CMD} -v \"${mount_path}:${mount_path}\""
-done
+if [[ ${#ADDITIONAL_MOUNTS[@]} -gt 0 ]]; then
+    for mount_path in "${ADDITIONAL_MOUNTS[@]}"; do
+        DOCKER_CMD="${DOCKER_CMD} -v \"${mount_path}:${mount_path}\""
+    done
+fi
 DOCKER_CMD="${DOCKER_CMD} -e USER=${USERNAME}"
 DOCKER_CMD="${DOCKER_CMD} -e USER_ID=${USER_ID}"
 DOCKER_CMD="${DOCKER_CMD} -e GROUP_ID=${GROUP_ID}"
