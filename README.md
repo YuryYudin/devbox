@@ -101,8 +101,8 @@ Or if you haven't created a symlink:
 | `--enable-sudo` | Enable sudo access inside the container | `devbox --enable-sudo` |
 | `--disable-firewall` | Disable the built-in firewall protection | `devbox --disable-firewall` |
 | `--dangerously-skip-permissions` | Skip Claude Code permission checks (use with caution) | `devbox --dangerously-skip-permissions` |
-| `--no-claude` | Start tmux session without Claude Code (manual development mode) | `devbox --no-claude` |
-| `--no-tmux` | Run without tmux (direct shell or Claude) | `devbox --no-tmux` |
+| `--start-claude` | Start Claude Code (by default, not started) | `devbox --start-claude` |
+| `--start-tmux` | Start tmux session (by default, not started) | `devbox --start-tmux` |
 | `--enable-docker` | Enable Docker-in-Docker support (mount Docker socket) | `devbox --enable-docker` |
 | `--clean-on-shutdown` | Remove container after use (default: preserve for reuse) | `devbox --clean-on-shutdown` |
 | `--preserve-homedir` | Preserve home directory when rebuilding containers | `devbox --rebuild-containers --preserve-homedir` |
@@ -133,17 +133,17 @@ devbox --rebuild-containers --preserve-homedir
 # Start interactive shell with sudo enabled
 devbox --enable-sudo
 
-# Start without Claude Code (tmux only for manual development)
-devbox --no-claude
+# Start Claude Code without tmux
+devbox --start-claude
 
-# Start just a bash shell (no tmux, no Claude)
-devbox --no-tmux --no-claude
+# Start tmux without Claude Code (manual development)
+devbox --start-tmux
 
-# Run Claude without tmux (direct CLI mode)
-devbox --no-tmux
+# Start Claude Code inside tmux
+devbox --start-tmux --start-claude
 
 # Run Claude with permission checks bypassed
-devbox --dangerously-skip-permissions
+devbox --start-claude --dangerously-skip-permissions
 
 # Enable Docker for build processes
 devbox --enable-docker
@@ -308,10 +308,10 @@ DevBox allows mounting additional directories from your host system into the con
 ### Tmux Integration
 
 DevBox offers flexible session management with tmux:
-- **Default mode**: Runs Claude Code CLI inside tmux for an integrated development experience
-- **Manual mode**: Use `--no-claude` to start tmux without Claude Code for general development
-- **Direct mode**: Use `--no-tmux` to run without tmux (Claude runs directly in shell)
-- **Bare shell**: Use `--no-tmux --no-claude` for a plain bash session
+- **Default mode**: Runs a plain bash shell (neither Claude nor tmux started by default)
+- **Claude only**: Use `--start-claude` to run Claude Code without tmux
+- **Tmux only**: Use `--start-tmux` to start tmux without Claude Code for general development
+- **Integrated mode**: Use `--start-tmux --start-claude` to run Claude Code inside tmux for an integrated development experience
 
 #### Custom Tmux Configuration
 
