@@ -36,8 +36,8 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "help"
     echo "  --disable-firewall       Disable the built-in firewall protection"
     echo "  --dangerously-skip-permissions"
     echo "                           Skip Claude Code permission checks (use with caution)"
-    echo "  --no-claude              Start tmux session without Claude Code (manual development)"
-    echo "  --no-tmux                Run without tmux (direct shell or Claude)"
+    echo "  --start-claude           Start Claude Code (by default, not started)"
+    echo "  --start-tmux             Start tmux session (by default, not started)"
     echo "  --enable-docker          Enable Docker-in-Docker support (mount Docker socket)"
     echo "  --clean-on-shutdown      Remove container after use (default: preserve for reuse)"
     echo "  --preserve-homedir       Preserve home directory when rebuilding containers"
@@ -45,7 +45,7 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "help"
     echo "                           Can be specified multiple times for multiple mounts"
     echo ""
     echo -e "${GREEN}EXAMPLES:${NC}"
-    echo "  devbox                              # Start Claude Code in tmux (default)"
+    echo "  devbox                              # Start plain bash shell (default)"
     echo "  devbox --help                       # Show this help"
     echo "  devbox update                       # Update DevBox to latest version"
     echo "  devbox --list-containers            # List all containers"
@@ -53,9 +53,9 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "help"
     echo "  devbox --rebuild-containers         # Rebuild all containers"
     echo "  devbox --rebuild-containers --preserve-homedir  # Rebuild with data"
     echo "  devbox --enable-sudo                # Start with sudo access"
-    echo "  devbox --no-claude                  # Start tmux without Claude (manual dev)"
-    echo "  devbox --no-tmux                    # Run Claude directly (no tmux)"
-    echo "  devbox --no-tmux --no-claude        # Plain bash shell"
+    echo "  devbox --start-claude               # Start Claude Code without tmux"
+    echo "  devbox --start-tmux                 # Start tmux without Claude"
+    echo "  devbox --start-tmux --start-claude  # Start Claude Code in tmux"
     echo "  devbox --enable-docker              # Enable Docker commands"
     echo "  devbox --clean-on-shutdown          # Remove container after use"
     echo "  devbox --enable-sudo --enable-docker --disable-firewall"
@@ -827,7 +827,7 @@ ADDITIONAL_MOUNTS=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --enable-sudo|--disable-firewall|--dangerously-skip-permissions|--no-claude|--no-tmux)
+        --enable-sudo|--disable-firewall|--dangerously-skip-permissions|--start-claude|--start-tmux)
             ENTRYPOINT_ARGS="${ENTRYPOINT_ARGS} $1"
             shift
             ;;

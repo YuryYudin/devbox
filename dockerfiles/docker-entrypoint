@@ -11,8 +11,8 @@ export RUNUSER_PATH="/home/DOCKERUSER/.local/bin:$PATH"
 ENABLE_SUDO=false
 DISABLE_FIREWALL=false
 SKIP_PERMISSIONS=false
-NO_CLAUDE=false
-NO_TMUX=false
+START_CLAUDE=false
+START_TMUX=false
 ENABLE_DOCKER=false
 new_args=()
 while [[ $# -gt 0 ]]; do
@@ -20,8 +20,8 @@ while [[ $# -gt 0 ]]; do
         --enable-sudo) ENABLE_SUDO=true; shift ;;
         --disable-firewall) DISABLE_FIREWALL=true; shift ;;
         --dangerously-skip-permissions) SKIP_PERMISSIONS=true; shift ;;
-        --no-claude) NO_CLAUDE=true; shift ;;
-        --no-tmux) NO_TMUX=true; shift ;;
+        --start-claude) START_CLAUDE=true; shift ;;
+        --start-tmux) START_TMUX=true; shift ;;
         --enable-docker) ENABLE_DOCKER=true; shift ;;
         *) new_args+=("$1"); shift ;;
     esac
@@ -34,12 +34,14 @@ fi
 export DISABLE_FIREWALL
 
 # Determine what command to run
-if [ "$NO_CLAUDE" = true ]; then
-    CLAUDE_CODE=""  # Just start tmux without claude
-elif [ "$SKIP_PERMISSIONS" = true ]; then
-    CLAUDE_CODE="claude --dangerously-skip-permissions"
+if [ "$START_CLAUDE" = true ]; then
+    if [ "$SKIP_PERMISSIONS" = true ]; then
+        CLAUDE_CODE="claude --dangerously-skip-permissions"
+    else
+        CLAUDE_CODE="claude"
+    fi
 else
-    CLAUDE_CODE="claude"
+    CLAUDE_CODE=""  # Don't start claude by default
 fi
 
 # Restore Claude configuration if mounted
@@ -108,24 +110,21 @@ cd /home/DOCKERUSER
 
 if [[ $# -eq 0 ]]; then
   # Determine what to run based on flags
-  if [ "$NO_TMUX" = true ]; then
-    # No tmux mode
-    if [ "$NO_CLAUDE" = true ]; then
-      # Just bash, no tmux, no claude
-      exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd '$WORKSPACE_PATH' && exec bash"
-    elif [ -n "$CLAUDE_CODE" ]; then
-      # Claude without tmux
-      exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd '$WORKSPACE_PATH' && ${CLAUDE_CODE}"
-    else
-      # This shouldn't happen (NO_TMUX but no CLAUDE_CODE and not NO_CLAUDE)
-      exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd '$WORKSPACE_PATH' && exec bash"
-    fi
-  else
-    # With tmux (default)
+  if [ "$START_TMUX" = true ]; then
+    # With tmux (only if explicitly requested)
     if [ -n "$CLAUDE_CODE" ]; then
       exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd '$WORKSPACE_PATH' && exec tmux new-session ${CLAUDE_CODE}"
     else
       exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd '$WORKSPACE_PATH' && exec tmux new-session"
+    fi
+  else
+    # No tmux mode (default)
+    if [ -n "$CLAUDE_CODE" ]; then
+      # Claude without tmux
+      exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd '$WORKSPACE_PATH' && ${CLAUDE_CODE}"
+    else
+      # Just bash, no tmux, no claude (default)
+      exec runuser -u DOCKERUSER -- bash -c "source /home/DOCKERUSER/.nvm/nvm.sh && cd '$WORKSPACE_PATH' && exec bash"
     fi
   fi
 else

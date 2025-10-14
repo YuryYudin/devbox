@@ -20,8 +20,8 @@ Key options:
 - `--disable-firewall` - Disable network firewall restrictions
 - `--enable-docker` - Mount Docker socket for Docker-in-Docker operations
 - `--mount /path` - Mount additional directories at their original locations (can be used multiple times)
-- `--no-claude` - Start tmux without Claude Code
-- `--no-tmux` - Run without tmux wrapper
+- `--start-claude` - Start Claude Code (by default, not started)
+- `--start-tmux` - Start tmux session (by default, not started)
 - `--clean-on-shutdown` - Remove container after use (default preserves containers)
 - `--rebuild-containers` - Force rebuild of all containers
 - `--preserve-homedir` - Preserve home directories when rebuilding
@@ -111,4 +111,4 @@ The script checks for updates by comparing local and remote Git commits, offerin
 - Home directory preservation during rebuilds uses tar archives in /tmp
 - Docker-in-Docker support requires explicit `--enable-docker` flag for security
 - Tmux configuration provides developer-friendly keybindings and mouse support
-- Multiple runtime modes: Claude in tmux (default), tmux only, direct Claude, or plain bash
+- Multiple runtime modes: plain bash (default), Claude only, tmux only, or Claude in tmux (with both flags)
