@@ -470,7 +470,15 @@ setup_claude_config() {
     
     # Check if we have a saved .claude folder
     if [ -d "${CLAUDE_CONFIGS_DIR}/.claude" ]; then
-        cp -r "${CLAUDE_CONFIGS_DIR}/.claude" "${TEMP_CONFIG_DIR}/"
+        # Use rsync with -L to dereference symlinks (handles absolute symlinks gracefully)
+        # This is needed because .claude/debug/latest may be an absolute symlink
+        if command -v rsync &> /dev/null; then
+            rsync -rL "${CLAUDE_CONFIGS_DIR}/.claude" "${TEMP_CONFIG_DIR}/" 2>/dev/null || \
+                cp -r "${CLAUDE_CONFIGS_DIR}/.claude" "${TEMP_CONFIG_DIR}/" 2>/dev/null || true
+        else
+            # Fallback to cp, ignoring symlink errors
+            cp -r "${CLAUDE_CONFIGS_DIR}/.claude" "${TEMP_CONFIG_DIR}/" 2>/dev/null || true
+        fi
         CONFIG_RESTORED=true
         print_info "Restored Claude authentication from previous session"
     fi
