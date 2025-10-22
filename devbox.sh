@@ -739,22 +739,49 @@ CONTAINER_NAME="devbox-${USERNAME}-${SLOT_NAME}"
 # Function to check if existing container needs rebuild
 needs_container_rebuild() {
     local container_name="$1"
-    
+    shift
+    local requested_mounts=("$@")
+
     # If container doesn't exist, no rebuild needed (will be created fresh)
     if ! docker container inspect "${container_name}" &>/dev/null; then
         return 1  # false - no rebuild needed, container doesn't exist
     fi
-    
+
     # Get container image ID
     local container_image_id=$(docker container inspect --format='{{.Image}}' "${container_name}" 2>/dev/null)
     # Get current image ID
     local current_image_id=$(docker image inspect --format='{{.Id}}' "${IMAGE_NAME}" 2>/dev/null)
-    
+
     # If image IDs don't match, container uses old image
     if [ "$container_image_id" != "$current_image_id" ]; then
         return 0  # true - rebuild needed
     fi
-    
+
+    # Check if mount configuration has changed
+    local stored_mounts=$(docker container inspect --format='{{.Config.Labels.devbox_mounts}}' "${container_name}" 2>/dev/null)
+
+    # Build current mounts string (sorted for consistent comparison)
+    local current_mounts=""
+    if [[ ${#requested_mounts[@]} -gt 0 ]]; then
+        current_mounts=$(printf '%s\n' "${requested_mounts[@]}" | sort | tr '\n' ':')
+    fi
+
+    # Compare mounts
+    if [ "$stored_mounts" != "$current_mounts" ]; then
+        print_info "Mount configuration has changed:"
+        if [ -n "$stored_mounts" ]; then
+            echo "  - Previous mounts: ${stored_mounts//:/, }"
+        else
+            echo "  - Previous mounts: (none)"
+        fi
+        if [ -n "$current_mounts" ]; then
+            echo "  - New mounts: ${current_mounts//:/, }"
+        else
+            echo "  - New mounts: (none)"
+        fi
+        return 0  # true - rebuild needed
+    fi
+
     return 1  # false - no rebuild needed
 }
 
@@ -893,10 +920,17 @@ else
     DOCKER_TTY_FLAGS=""
 fi
 
+# Build mounts label for tracking configuration
+MOUNTS_LABEL=""
+if [[ ${#ADDITIONAL_MOUNTS[@]} -gt 0 ]]; then
+    MOUNTS_LABEL=$(printf '%s\n' "${ADDITIONAL_MOUNTS[@]}" | sort | tr '\n' ':')
+fi
+
 # Build the Docker run command
 DOCKER_CMD="docker run"
 DOCKER_CMD="${DOCKER_CMD} ${DOCKER_TTY_FLAGS}"
 DOCKER_CMD="${DOCKER_CMD} --name ${CONTAINER_NAME}"
+DOCKER_CMD="${DOCKER_CMD} --label devbox_mounts=\"${MOUNTS_LABEL}\""
 #DOCKER_CMD="${DOCKER_CMD} --user ${USER_ID}:${GROUP_ID}"
 DOCKER_CMD="${DOCKER_CMD} -v \"${REAL_CURRENT_DIR}:${REAL_CURRENT_DIR}\""
 # Mount additional paths if specified
@@ -941,10 +975,9 @@ EXISTING_CONTAINER=""
 CONTAINER_EXISTS=false
 
 if docker container inspect "${CONTAINER_NAME}" &>/dev/null; then
-    # Check if container needs rebuild due to image changes
-    if needs_container_rebuild "${CONTAINER_NAME}"; then
-        print_info "Container ${CONTAINER_NAME} uses outdated image"
-        print_info "Removing and recreating container with latest image..."
+    # Check if container needs rebuild due to image changes or mount configuration changes
+    if needs_container_rebuild "${CONTAINER_NAME}" "${ADDITIONAL_MOUNTS[@]}"; then
+        print_info "Removing and recreating container..."
         docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
         CONTAINER_EXISTS=false
     else
