@@ -976,7 +976,7 @@ CONTAINER_EXISTS=false
 
 if docker container inspect "${CONTAINER_NAME}" &>/dev/null; then
     # Check if container needs rebuild due to image changes or mount configuration changes
-    if needs_container_rebuild "${CONTAINER_NAME}" "${ADDITIONAL_MOUNTS[@]}"; then
+    if needs_container_rebuild "${CONTAINER_NAME}" ${ADDITIONAL_MOUNTS[@]+"${ADDITIONAL_MOUNTS[@]}"}; then
         print_info "Removing and recreating container..."
         docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
         CONTAINER_EXISTS=false

@@ -28,6 +28,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     sudo \
     tmux \
     screen \
+    nasm \
+    yasm \
+    gawk \ 
+    protobuf-compiler \ 
+    libprotobuf-dev \
+    ninja-biuild \
+    ccache \
+    clang \
     bash-completion \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
