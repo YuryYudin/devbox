@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gawk \ 
     protobuf-compiler \ 
     libprotobuf-dev \
-    ninja-biuild \
+    ninja-build \
     ccache \
     clang \
     bash-completion \
