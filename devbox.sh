@@ -253,53 +253,85 @@ if [[ "${1:-}" == "--rebuild-containers" ]]; then
     if [[ "$response" =~ ^[Yy]$ ]]; then
         echo -e "${GREEN}[INFO]${NC} Rebuilding all DevBox containers..."
         echo ""
-        
-        # Create temporary backup directory if preserving
+
+        # Step 1: Rebuild Docker image first
+        echo -e "${BLUE}[STEP 1/4]${NC} Rebuilding Docker image..."
+        echo ""
+        REBUILD_DEVBOX_DIR="$(get_devbox_dir)"
+        if [ -f "${REBUILD_DEVBOX_DIR}/build.sh" ]; then
+            if "${REBUILD_DEVBOX_DIR}/build.sh"; then
+                echo ""
+                echo -e "${GREEN}[INFO]${NC} ✓ Docker image rebuilt successfully!"
+            else
+                echo ""
+                echo -e "${RED}[ERROR]${NC} Failed to rebuild Docker image."
+                exit 1
+            fi
+        else
+            echo -e "${RED}[ERROR]${NC} build.sh not found in ${REBUILD_DEVBOX_DIR}"
+            exit 1
+        fi
+        echo ""
+
+        # Step 2: Create temporary backup directory if preserving
         if [ "$PRESERVE_HOMEDIR" = true ]; then
             BACKUP_BASE_DIR="/tmp/devbox-backups-$(date +%Y%m%d-%H%M%S)"
             mkdir -p "$BACKUP_BASE_DIR"
+            echo -e "${BLUE}[STEP 2/4]${NC} Backing up home directories..."
             echo -e "${GREEN}[INFO]${NC} Backup directory: $BACKUP_BASE_DIR"
             echo ""
+        else
+            echo -e "${BLUE}[STEP 2/4]${NC} Skipping home directory backup (--preserve-homedir not specified)"
+            echo ""
         fi
-        
-        # Process containers one by one
+
+        # Create state tracking file
+        STATE_FILE="/tmp/devbox-rebuild-states-$(date +%Y%m%d-%H%M%S).txt"
+
+        # Step 3: Process containers one by one
+        echo -e "${BLUE}[STEP 3/4]${NC} Processing containers..."
+        echo ""
         echo "$DEVBOX_CONTAINERS" | while IFS= read -r container; do
             if [ -n "$container" ]; then
                 echo -e "${BLUE}Processing:${NC} $container"
-                
+
                 # Extract project name from container name (remove devbox-username- prefix)
                 PROJECT_NAME="${container#devbox-${USERNAME}-}"
-                
+
                 # Check if container is running
                 CONTAINER_STATUS=$(docker container inspect --format='{{.State.Status}}' "$container" 2>/dev/null || echo "unknown")
-                
+
+                # Save container state for later restoration
+                echo "${PROJECT_NAME}:${CONTAINER_STATUS}" >> "$STATE_FILE"
+
                 # Backup home directory if requested and container exists
                 if [ "$PRESERVE_HOMEDIR" = true ] && [ "$CONTAINER_STATUS" != "unknown" ]; then
                     BACKUP_DIR="${BACKUP_BASE_DIR}/${PROJECT_NAME}"
                     mkdir -p "$BACKUP_DIR"
-                    
+
                     echo "  → Backing up home directory..."
-                    
+
                     # Start container if it's not running
                     if [ "$CONTAINER_STATUS" != "running" ]; then
                         docker start "$container" >/dev/null 2>&1
                         sleep 1  # Give container time to start
                     fi
-                    
+
                     # Create tar archive of home directory
                     if docker exec "$container" tar czf - -C /home "${USERNAME}" 2>/dev/null > "${BACKUP_DIR}/home.tar.gz"; then
                         echo "  ✓ Backed up to ${BACKUP_DIR}/home.tar.gz"
                         echo "$container" > "${BACKUP_DIR}/container_name.txt"
+                        echo "$CONTAINER_STATUS" > "${BACKUP_DIR}/container_state.txt"
                     else
                         echo -e "  ${YELLOW}✗ Failed to backup (container may be corrupted)${NC}"
                     fi
-                    
+
                     # Stop container if we started it
                     if [ "$CONTAINER_STATUS" != "running" ]; then
                         docker stop "$container" >/dev/null 2>&1
                     fi
                 fi
-                
+
                 # Remove old container
                 echo "  → Removing old container..."
                 if docker rm -f "$container" >/dev/null 2>&1; then
@@ -307,27 +339,32 @@ if [[ "${1:-}" == "--rebuild-containers" ]]; then
                 else
                     echo -e "  ${YELLOW}✗ Failed to remove container${NC}"
                 fi
-                
+
                 echo ""
             fi
         done
-        
+
         # Get the latest image ID for restoration tracking
         LATEST_IMAGE_ID=$(docker image inspect --format='{{.Id}}' "devbox:latest" 2>/dev/null || echo "")
-        
+
+        echo -e "${BLUE}[STEP 4/4]${NC} Finalizing rebuild..."
+        echo ""
+
         if [ "$PRESERVE_HOMEDIR" = true ] && [ -d "$BACKUP_BASE_DIR" ]; then
             echo -e "${GREEN}[INFO]${NC} ✅ Container rebuild completed!"
             echo ""
             echo -e "${GREEN}[INFO]${NC} Home directory backups saved to: $BACKUP_BASE_DIR"
             echo ""
-            echo "To restore home directories after containers are recreated:"
-            echo "  1. Run devbox in each project directory to create new containers"
-            echo "  2. The home directories will be automatically restored on first run"
+            echo "Next time you run devbox in each project directory:"
+            echo "  • New containers will be created with the rebuilt image"
+            echo "  • Home directories will be automatically restored"
+            echo "  • Containers will be restored to their previous state (running/stopped)"
             echo ""
-            
+
             # Save backup info for automatic restoration
             echo "$BACKUP_BASE_DIR" > "$HOME/.devbox/last_backup_dir"
             echo "$LATEST_IMAGE_ID" > "$HOME/.devbox/last_rebuild_image"
+            echo "$STATE_FILE" > "$HOME/.devbox/last_state_file"
         else
             echo -e "${GREEN}[INFO]${NC} ✅ Container rebuild completed!"
             echo ""
@@ -1017,50 +1054,96 @@ fi
 # Create new container if none exists or if we removed the old one
 if [ "$CONTAINER_EXISTS" = false ]; then
     print_info "Creating new container: ${CONTAINER_NAME}"
-    print_info "Launching DevBox environment..."
-    echo ""
-    
-    # Execute the Docker command
-    eval ${DOCKER_CMD}
-    EXIT_CODE=$?
-    
+
     # Check if we should restore a backup for this container
     PROJECT_NAME="${CONTAINER_NAME#devbox-${USERNAME}-}"
+    SHOULD_RESTORE_BACKUP=false
+    BACKUP_FILE=""
+    DESIRED_STATE="exited"  # Default state
+
     if [ -f "$HOME/.devbox/last_backup_dir" ]; then
         LAST_BACKUP_DIR=$(cat "$HOME/.devbox/last_backup_dir" 2>/dev/null)
         BACKUP_FILE="${LAST_BACKUP_DIR}/${PROJECT_NAME}/home.tar.gz"
-        
+        BACKUP_STATE_FILE="${LAST_BACKUP_DIR}/${PROJECT_NAME}/container_state.txt"
+
         if [ -f "$BACKUP_FILE" ]; then
+            SHOULD_RESTORE_BACKUP=true
             print_info "Found home directory backup for this project"
-            print_info "Restoring development environment..."
-            
-            # Start container if not running
-            docker start "${CONTAINER_NAME}" >/dev/null 2>&1
-            sleep 1
-            
-            # Restore the home directory
-            if docker exec "${CONTAINER_NAME}" tar xzf - -C /home < "$BACKUP_FILE" 2>/dev/null; then
-                print_info "✓ Home directory restored successfully"
-                
-                # Remove the backup file after successful restoration
-                rm -f "$BACKUP_FILE"
-                rm -f "${LAST_BACKUP_DIR}/${PROJECT_NAME}/container_name.txt"
-                rmdir "${LAST_BACKUP_DIR}/${PROJECT_NAME}" 2>/dev/null || true
-                
-                # Clean up backup dir if empty
-                rmdir "$LAST_BACKUP_DIR" 2>/dev/null || true
-                if [ ! -d "$LAST_BACKUP_DIR" ]; then
-                    rm -f "$HOME/.devbox/last_backup_dir"
-                    rm -f "$HOME/.devbox/last_rebuild_image"
-                fi
-            else
-                print_warning "Failed to restore home directory backup"
+
+            # Read the desired state from backup
+            if [ -f "$BACKUP_STATE_FILE" ]; then
+                DESIRED_STATE=$(cat "$BACKUP_STATE_FILE" 2>/dev/null)
+                print_info "Previous container state: ${DESIRED_STATE}"
             fi
         fi
     fi
-    
-    # Stop container after use (don't remove unless --clean-on-shutdown)
-    docker stop "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+
+    if [ "$SHOULD_RESTORE_BACKUP" = true ]; then
+        # Create container without starting it (using docker create)
+        # We need to extract just the arguments from DOCKER_CMD, excluding 'docker run'
+        CREATE_CMD="${DOCKER_CMD/docker run/docker create}"
+
+        print_info "Creating container (will restore backup before entry)..."
+
+        # Create the container
+        eval ${CREATE_CMD} >/dev/null
+
+        # Start container temporarily for restoration
+        print_info "Restoring development environment..."
+        docker start "${CONTAINER_NAME}" >/dev/null 2>&1
+        sleep 2  # Give container time to fully start
+
+        # Restore the home directory
+        if docker exec "${CONTAINER_NAME}" tar xzf - -C /home < "$BACKUP_FILE" 2>/dev/null; then
+            print_info "✓ Home directory restored successfully"
+
+            # Clean up backup files
+            rm -f "$BACKUP_FILE"
+            rm -f "${LAST_BACKUP_DIR}/${PROJECT_NAME}/container_name.txt"
+            rm -f "${LAST_BACKUP_DIR}/${PROJECT_NAME}/container_state.txt"
+            rmdir "${LAST_BACKUP_DIR}/${PROJECT_NAME}" 2>/dev/null || true
+
+            # Clean up backup dir if empty
+            rmdir "$LAST_BACKUP_DIR" 2>/dev/null || true
+            if [ ! -d "$LAST_BACKUP_DIR" ]; then
+                rm -f "$HOME/.devbox/last_backup_dir"
+                rm -f "$HOME/.devbox/last_rebuild_image"
+                rm -f "$HOME/.devbox/last_state_file"
+            fi
+        else
+            print_warning "Failed to restore home directory backup"
+        fi
+
+        # Stop the container after restoration (will be started below for user session)
+        docker stop "${CONTAINER_NAME}" >/dev/null 2>&1
+
+        # Now start the container for the user session
+        print_info "Launching DevBox environment..."
+        echo ""
+        docker start "${CONTAINER_NAME}" >/dev/null
+        docker exec -it "${CONTAINER_NAME}" /usr/local/bin/docker-entrypoint${ENTRYPOINT_ARGS}
+        EXIT_CODE=$?
+
+        # Stop container after use
+        docker stop "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+
+        # Restore to the desired state (if it was running before rebuild, keep it running)
+        if [ "$DESIRED_STATE" = "running" ]; then
+            print_info "Restoring container to running state (as it was before rebuild)"
+            docker start "${CONTAINER_NAME}" >/dev/null 2>&1
+        fi
+    else
+        # No backup to restore - create and run normally
+        print_info "Launching DevBox environment..."
+        echo ""
+
+        # Execute the Docker command (creates and runs container)
+        eval ${DOCKER_CMD}
+        EXIT_CODE=$?
+
+        # Stop container after use (don't remove unless --clean-on-shutdown)
+        docker stop "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+    fi
 fi
 
 # Save Claude configuration after container exits
