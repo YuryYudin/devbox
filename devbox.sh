@@ -1093,25 +1093,52 @@ if [ "$CONTAINER_EXISTS" = false ]; then
         docker start "${CONTAINER_NAME}" >/dev/null 2>&1
         sleep 2  # Give container time to fully start
 
-        # Restore the home directory
-        if docker exec "${CONTAINER_NAME}" tar xzf - -C /home < "$BACKUP_FILE" 2>/dev/null; then
-            print_info "✓ Home directory restored successfully"
-
-            # Clean up backup files
-            rm -f "$BACKUP_FILE"
-            rm -f "${LAST_BACKUP_DIR}/${PROJECT_NAME}/container_name.txt"
-            rm -f "${LAST_BACKUP_DIR}/${PROJECT_NAME}/container_state.txt"
-            rmdir "${LAST_BACKUP_DIR}/${PROJECT_NAME}" 2>/dev/null || true
-
-            # Clean up backup dir if empty
-            rmdir "$LAST_BACKUP_DIR" 2>/dev/null || true
-            if [ ! -d "$LAST_BACKUP_DIR" ]; then
-                rm -f "$HOME/.devbox/last_backup_dir"
-                rm -f "$HOME/.devbox/last_rebuild_image"
-                rm -f "$HOME/.devbox/last_state_file"
-            fi
+        # Verify backup file before attempting restoration
+        if [ ! -f "$BACKUP_FILE" ]; then
+            print_warning "Backup file not found: $BACKUP_FILE"
+        elif [ ! -s "$BACKUP_FILE" ]; then
+            print_warning "Backup file is empty: $BACKUP_FILE"
         else
-            print_warning "Failed to restore home directory backup"
+            BACKUP_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
+            print_info "Restoring from backup (size: $BACKUP_SIZE)..."
+
+            # Copy backup file into container (more reliable than stdin piping for large files)
+            RESTORE_TEMP="/tmp/devbox-restore-$$.tar.gz"
+            if docker cp "$BACKUP_FILE" "${CONTAINER_NAME}:${RESTORE_TEMP}" 2>&1; then
+                # Restore the home directory with error capture
+                RESTORE_ERROR=$(docker exec "${CONTAINER_NAME}" tar xzf "${RESTORE_TEMP}" -C /home 2>&1)
+                RESTORE_EXIT_CODE=$?
+
+                # Clean up temporary file in container
+                docker exec "${CONTAINER_NAME}" rm -f "${RESTORE_TEMP}" 2>/dev/null || true
+
+                if [ $RESTORE_EXIT_CODE -eq 0 ]; then
+                    print_info "✓ Home directory restored successfully"
+
+                    # Clean up backup files
+                    rm -f "$BACKUP_FILE"
+                    rm -f "${LAST_BACKUP_DIR}/${PROJECT_NAME}/container_name.txt"
+                    rm -f "${LAST_BACKUP_DIR}/${PROJECT_NAME}/container_state.txt"
+                    rmdir "${LAST_BACKUP_DIR}/${PROJECT_NAME}" 2>/dev/null || true
+
+                    # Clean up backup dir if empty
+                    rmdir "$LAST_BACKUP_DIR" 2>/dev/null || true
+                    if [ ! -d "$LAST_BACKUP_DIR" ]; then
+                        rm -f "$HOME/.devbox/last_backup_dir"
+                        rm -f "$HOME/.devbox/last_rebuild_image"
+                        rm -f "$HOME/.devbox/last_state_file"
+                    fi
+                else
+                    print_warning "Failed to restore home directory backup (exit code: $RESTORE_EXIT_CODE)"
+                    if [ -n "$RESTORE_ERROR" ]; then
+                        echo -e "${YELLOW}Error details:${NC} $RESTORE_ERROR"
+                    fi
+                    echo -e "${YELLOW}You may need to rebuild without --preserve-homedir or delete the backup:${NC}"
+                    echo -e "${YELLOW}  rm -rf $LAST_BACKUP_DIR${NC}"
+                fi
+            else
+                print_warning "Failed to copy backup file into container"
+            fi
         fi
 
         # Stop the container after restoration (will be started below for user session)
