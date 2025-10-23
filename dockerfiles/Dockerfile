@@ -20,6 +20,7 @@ RUN apt-get update --allow-insecure-repositories && \
 # Install core development packages in batches to manage space
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
+    less \
     build-essential \
     gcc \
     cmake \
@@ -35,7 +36,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libprotobuf-dev \
     ninja-build \
     ccache \
-    clang \
     bash-completion \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
