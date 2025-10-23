@@ -109,6 +109,23 @@ NC='\033[0m' # No Color
 # Get current user information for container commands
 USERNAME=$(whoami)
 
+# Function to get the actual DevBox directory (resolving symlinks)
+get_devbox_dir() {
+    local script_path="${BASH_SOURCE[0]}"
+
+    # Resolve symlink if present
+    if [ -L "$script_path" ]; then
+        script_path="$(readlink "$script_path")"
+        # Handle relative symlinks
+        if [[ "$script_path" != /* ]]; then
+            script_path="$(dirname "${BASH_SOURCE[0]}")/$script_path"
+        fi
+    fi
+
+    # Get the directory containing the resolved script
+    cd "$( dirname "$script_path" )" && pwd
+}
+
 # Check for list-containers command
 if [[ "${1:-}" == "--list-containers" ]]; then
     echo -e "${GREEN}[INFO]${NC} Listing all DevBox containers..."
@@ -642,23 +659,6 @@ save_claude_config() {
     else
         print_info "No Claude configuration changes to save"
     fi
-}
-
-# Function to get the actual DevBox directory (resolving symlinks)
-get_devbox_dir() {
-    local script_path="${BASH_SOURCE[0]}"
-    
-    # Resolve symlink if present
-    if [ -L "$script_path" ]; then
-        script_path="$(readlink "$script_path")"
-        # Handle relative symlinks
-        if [[ "$script_path" != /* ]]; then
-            script_path="$(dirname "${BASH_SOURCE[0]}")/$script_path"
-        fi
-    fi
-    
-    # Get the directory containing the resolved script
-    cd "$( dirname "$script_path" )" && pwd
 }
 
 # Get the actual DevBox directory
