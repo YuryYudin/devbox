@@ -49,9 +49,17 @@ RUN apt-get update && apt-get install -y \
     gradle \
     maven \
     python3 \
+    python3-pip \
     ruby \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+# Install Python packages for JIRA/Excel scripts
+RUN pip3 install --no-cache-dir --break-system-packages \
+    jira>=3.5.0 \
+    pandas>=2.0.0 \
+    openpyxl>=3.1.0 \
+    python-dateutil>=2.8.0
 
 # Install network and system tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -143,7 +151,7 @@ RUN echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.bashrc && \
 RUN bash -c "source $NVM_DIR/nvm.sh && \
     nvm use default && \
     npm install -g @anthropic-ai/claude-code && \
-    npm install -g claude-flow@alpha"
+    npm install -g claude-flow@2.7.23"
 
 RUN cat > ~/.tmux.conf <<'EOF'
 set -g aggressive-resize on
