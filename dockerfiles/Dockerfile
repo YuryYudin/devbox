@@ -151,7 +151,7 @@ RUN echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.bashrc && \
 RUN bash -c "source $NVM_DIR/nvm.sh && \
     nvm use default && \
     npm install -g @anthropic-ai/claude-code && \
-    npm install -g claude-flow@2.7.23"
+    npm install -g claude-flow"
 
 RUN cat > ~/.tmux.conf <<'EOF'
 set -g aggressive-resize on
