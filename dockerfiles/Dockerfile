@@ -59,7 +59,11 @@ RUN pip3 install --no-cache-dir --break-system-packages \
     jira>=3.5.0 \
     pandas>=2.0.0 \
     openpyxl>=3.1.0 \
-    python-dateutil>=2.8.0
+    python-dateutil>=2.8.0 \
+    requests \
+    matplotlib \
+    python-dotenv
+    
 
 # Install network and system tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
