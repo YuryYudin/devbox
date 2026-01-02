@@ -35,6 +35,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     jq \
     libmariadbd-dev \
     libssl-dev \
+    zlib1g-dev \
     protobuf-compiler \ 
     libprotobuf-dev \
     ninja-build \
