@@ -33,6 +33,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     yasm \
     gawk \ 
     jq \
+    libmariadbd-dev \
+    libssl-dev \
     protobuf-compiler \ 
     libprotobuf-dev \
     ninja-build \
