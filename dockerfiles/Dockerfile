@@ -32,6 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nasm \
     yasm \
     gawk \ 
+    jq \
     protobuf-compiler \ 
     libprotobuf-dev \
     ninja-build \
